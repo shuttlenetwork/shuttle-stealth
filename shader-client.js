@@ -39,7 +39,7 @@ class ShaderClient {
       uvConfigPath: 'shader.config.js',
       uvBundlePath: 'shader.bundle.js',
       uvClientPath: 'shader.canvas.js',
-      matrixPath: 'matrix/index.js',
+      matrixPath: 'matrix/index.mjs',
       searchEngine: 'https://duckduckgo.com/?q=%s',
       timeout: 5000,
       ...options,
@@ -128,12 +128,20 @@ class ShaderClient {
     this.updateState({ initialized: true })
 
     try {
-      await this.loadScript(this.options.matrixPath)
-      await this.loadScript(this.options.uvBundlePath)
-      await this.loadScript(this.options.uvConfigPath)
-      await this.loadScript(this.options.uvClientPath, 'module')
+      // Load dependencies as ES modules
+      if (this.options.loadBareMux) {
+        const BareMuxModule = await import(new URL(this.options.matrixPath, location.href).href)
+        window.BareMux = BareMuxModule
+      }
 
-      const connection = new BareMux.BareMuxConnection(this.options.workerPath)
+      if (this.options.loadUltraviolet) {
+        await import(new URL(this.options.uvBundlePath, location.href).href)
+        await import(new URL(this.options.uvConfigPath, location.href).href)
+        const ShaderCanvasModule = await import(new URL(this.options.uvClientPath, location.href).href)
+        window.ShaderCanvas = ShaderCanvasModule.ShaderCanvas
+      }
+
+      const connection = new window.BareMux.BareMuxConnection(this.options.workerPath)
       const wispURL = window.__uv$config.wisp
 
       console.log('🔧 Setting transport to Wisp (Remote Server):', wispURL)
