@@ -131,9 +131,9 @@ class ShaderClient {
       await this.loadScript(this.options.matrixPath)
       await this.loadScript(this.options.uvBundlePath)
       await this.loadScript(this.options.uvConfigPath)
-      await this.loadScript(this.options.uvClientPath)
+      await this.loadScript(this.options.uvClientPath, 'module')
 
-      const connection = new BareMux.BareMuxConnection('matrix/worker.js')
+      const connection = new BareMux.BareMuxConnection(this.options.workerPath)
       const wispURL = window.__uv$config.wisp
 
       console.log('🔧 Setting transport to Wisp (Remote Server):', wispURL)
@@ -167,12 +167,14 @@ class ShaderClient {
    * Loads a script dynamically.
    * @private
    * @param {string} src - The script source URL.
+   * @param {string} [type='text/javascript'] - The script type (e.g., 'module').
    * @returns {Promise<void>}
    */
-  async loadScript(src) {
+  async loadScript(src, type = 'text/javascript') {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script')
       script.src = src
+      script.type = type
       script.onload = () => resolve()
       script.onerror = () => reject(new Error(`Failed to load script: ${src}`))
       document.head.appendChild(script)
