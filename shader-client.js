@@ -40,6 +40,7 @@ class ShaderClient {
       uvBundlePath: 'shader.bundle.js',
       uvClientPath: 'shader.canvas.js',
       matrixPath: 'matrix/index.mjs',
+      workerPath: 'matrix/worker.js',
       searchEngine: 'https://duckduckgo.com/?q=%s',
       timeout: 5000,
       loadBareMux: true,
@@ -147,7 +148,7 @@ class ShaderClient {
       const wispURL = window.__uv$config.wisp
 
       console.log('🔧 Setting transport to Wisp (Remote Server):', wispURL)
-      await connection.setTransport('vector/index.mjs', [{ wisp: wispURL }])
+      await connection.setTransport('/vector/index.mjs', [{ wisp: wispURL }])
       console.log('✅ Vector transport configured')
 
       // Force update of SW
