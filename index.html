@@ -624,8 +624,11 @@
       </div>
     </div>
 
-    <script>
-      function shuttleApp() {
+    <script type="module">
+      import { ShaderClient } from './shader-client.js';
+      import { ShaderCanvas } from './shader-canvas.js';
+
+      window.shuttleApp = function() {
         return {
           canvas: null,
           ready: false,
