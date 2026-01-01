@@ -449,3 +449,4 @@ class ShaderClient {
 }
 
 window.ShaderClient = ShaderClient
+export { ShaderClient };

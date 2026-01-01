@@ -234,3 +234,4 @@ class ShaderCanvas {
 }
 
 window.ShaderCanvas = ShaderCanvas;
+export { ShaderCanvas };
