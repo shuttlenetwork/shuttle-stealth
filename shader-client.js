@@ -144,10 +144,10 @@ class ShaderClient {
         window.ShaderCanvas = ShaderCanvasModule.ShaderCanvas
       }
 
-      const workerUrl = new URL(this.options.workerPath, location.href).href
+      const workerUrl = new URL(this.options.workerPath + '?v=' + Date.now(), location.href).href
       const connection = new window.BareMux.BareMuxConnection(workerUrl)
       const wispURL = window.__uv$config.wisp
-      const transportUrl = new URL('vector/index.mjs', location.href).href
+      const transportUrl = new URL('vector/index.mjs?v=' + Date.now(), location.href).href
 
       console.log('🔧 Setting transport to Wisp (Remote Server):', wispURL)
       await connection.setTransport(transportUrl, [{ wisp: wispURL }])
