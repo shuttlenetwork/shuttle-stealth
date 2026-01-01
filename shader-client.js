@@ -36,10 +36,10 @@ class ShaderClient {
    */
   constructor(options = {}) {
     this.options = {
-      uvConfigPath: '/shader.config.js',
-      uvBundlePath: '/shader.bundle.js',
-      uvClientPath: '/shader.canvas.js',
-      matrixPath: '/matrix/index.js',
+      uvConfigPath: 'shader.config.js',
+      uvBundlePath: 'shader.bundle.js',
+      uvClientPath: 'shader.canvas.js',
+      matrixPath: 'matrix/index.js',
       searchEngine: 'https://duckduckgo.com/?q=%s',
       timeout: 5000,
       ...options,
@@ -133,15 +133,15 @@ class ShaderClient {
       await this.loadScript(this.options.uvConfigPath)
       await this.loadScript(this.options.uvClientPath)
 
-      const connection = new BareMux.BareMuxConnection('/matrix/worker.js')
+      const connection = new BareMux.BareMuxConnection('matrix/worker.js')
       const wispURL = window.__uv$config.wisp
 
       console.log('🔧 Setting transport to Wisp (Remote Server):', wispURL)
-      await connection.setTransport('/vector/index.mjs', [{ wisp: wispURL }])
+      await connection.setTransport('vector/index.mjs', [{ wisp: wispURL }])
       console.log('✅ Vector transport configured')
 
       // Force update of SW
-      await this.registerServiceWorker('/compute.js?v=' + Date.now())
+      await this.registerServiceWorker('compute.js?v=' + Date.now())
 
       this.encodeUrl = (url) => {
         return window.location.origin + window.__uv$config.prefix + window.__uv$config.encodeUrl(url)
