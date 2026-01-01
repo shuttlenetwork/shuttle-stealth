@@ -42,6 +42,8 @@ class ShaderClient {
       matrixPath: 'matrix/index.mjs',
       searchEngine: 'https://duckduckgo.com/?q=%s',
       timeout: 5000,
+      loadBareMux: true,
+      loadUltraviolet: true,
       ...options,
     }
 
