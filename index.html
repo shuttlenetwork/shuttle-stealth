@@ -624,11 +624,8 @@
       </div>
     </div>
 
-    <script type="module">
-      import { ShaderClient } from './shader-client.js';
-      import { ShaderCanvas } from './shader-canvas.js';
-
-      window.shuttleApp = function() {
+    <script>
+      function shuttleApp() {
         return {
           canvas: null,
           ready: false,
@@ -669,7 +666,12 @@
               this.saveToStorage()
             }
 
-            // 2. Initialize ShaderCanvas
+            // 2. Import Libraries Dynamically
+            const { ShaderCanvas } = await import('./shader-canvas.js');
+            // ShaderClient is imported by ShaderCanvas usually, or we can import it if needed for static props
+            const { ShaderClient } = await import('./shader-client.js');
+
+            // 3. Initialize ShaderCanvas
             this.canvas = new ShaderCanvas('canvas-container');
 
             // Bind Events
