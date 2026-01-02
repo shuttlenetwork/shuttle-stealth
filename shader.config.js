@@ -13,5 +13,5 @@ self.__uv$config = {
   bundle: basePath + 'shader.bundle.js?raw=true',
   config: basePath + 'shader.config.js?raw=true',
   sw: basePath + 'shader.kernel.js?raw=true',
-  client: basePath + 'shader.canvas.js',
+  client: basePath + 'shader.canvas.js?raw=true',
 }
