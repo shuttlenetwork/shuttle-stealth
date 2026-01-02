@@ -174,7 +174,41 @@ class ShaderClient {
       this.encodeUrl = (url) => {
         return window.location.origin + window.__uv$config.prefix + window.__uv$config.encodeUrl(url)
       }
-...
+      this.decodeUrl = (url) => {
+        const prefix = window.__uv$config.prefix
+        if (url.includes(prefix)) {
+          return window.__uv$config.decodeUrl(url.split(prefix)[1])
+        }
+        return url
+      }
+
+      this.updateState({ ready: true })
+      this.emit(ShaderClient.EVENTS.READY)
+    } catch (error) {
+      console.error('ShaderClient Init Error:', error)
+      this.updateState({ error: error.message })
+      this.emit(ShaderClient.EVENTS.ERROR, error)
+    }
+  }
+
+  /**
+   * Loads a script dynamically.
+   * @private
+   * @param {string} src - The script source URL.
+   * @param {string} [type='text/javascript'] - The script type (e.g., 'module').
+   * @returns {Promise<void>}
+   */
+  async loadScript(src, type = 'text/javascript') {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = src
+      script.type = type
+      script.onload = () => resolve()
+      script.onerror = () => reject(new Error(`Failed to load script: ${src}`))
+      document.head.appendChild(script)
+    })
+  }
+
   /**
    * Registers the Service Worker.
    * @private
