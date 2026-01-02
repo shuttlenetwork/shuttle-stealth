@@ -217,7 +217,7 @@ class ShaderClient {
    */
   async registerServiceWorker(path) {
     try {
-      await navigator.serviceWorker.register(path, { scope: '/' })
+      await navigator.serviceWorker.register(path, { scope: './' })
       await navigator.serviceWorker.ready
       this.updateState({ computeWorkerRegistered: true })
 
