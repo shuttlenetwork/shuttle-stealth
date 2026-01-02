@@ -1,10 +1,11 @@
-importScripts('./matrix/index.js?raw=true')
-importScripts('./shader.bundle.js?raw=true')
-importScripts('./shader.config.js?raw=true')
-importScripts('./shader.kernel.js?raw=true')
+import * as BareMux from './matrix/index.mjs'
+import './shader.bundle.mjs'
+import './shader.config.mjs'
+import './shader.kernel.mjs'
 
+self.BareMux = BareMux
 const uv = new self.UVServiceWorker()
-const connection = new self.BareMux.BareMuxConnection('./matrix/worker.js?raw=true')
+const connection = new BareMux.BareMuxConnection('./matrix/worker.js?raw=true')
 
 let transportReady = false
 

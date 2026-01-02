@@ -36,9 +36,9 @@ class ShaderClient {
    */
   constructor(options = {}) {
     this.options = {
-      uvConfigPath: 'shader.config.js',
-      uvBundlePath: 'shader.bundle.js',
-      uvClientPath: 'shader.canvas.js',
+      uvConfigPath: 'shader.config.mjs',
+      uvBundlePath: 'shader.bundle.mjs',
+      uvClientPath: 'shader.canvas.mjs',
       matrixPath: 'matrix/index.mjs',
       workerPath: 'matrix/worker.js',
       searchEngine: 'https://duckduckgo.com/?q=%s',
@@ -47,89 +47,7 @@ class ShaderClient {
       loadUltraviolet: true,
       ...options,
     }
-
-    this.engine = 'vector'
-    // Use the name from storage, or fallback to the config if available once init runs
-    this.searchEngine = localStorage.getItem('shader_search_engine') || 'duckduckgo'
-
-    /**
-     * @typedef {Object} ShaderState
-     * @property {boolean} initialized - Whether init() has been called.
-     * @property {boolean} ready - Whether the client is ready to navigate.
-     * @property {boolean} loading - Whether a page is currently loading in the proxied frame.
-     * @property {string} engine - Current transport engine (default: 'vector').
-     * @property {string} searchEngine - Current search engine identifier.
-     * @property {boolean} computeWorkerRegistered - Whether the service worker is registered.
-     * @property {Error|null} error - Last error encountered, if any.
-     */
-    this.state = {
-      initialized: false,
-      ready: false,
-      loading: false,
-      engine: this.engine,
-      searchEngine: this.searchEngine,
-      computeWorkerRegistered: false,
-      error: null,
-    }
-
-    this.listeners = {}
-    this.iframe = null
-    this._pollingInterval = null
-
-    // Automatically set frame if provided in options
-    if (this.options.frame) {
-        this.setFrame(this.options.frame)
-    }
-  }
-
-  /**
-   * Sets the preferred search engine.
-   * @param {string} engine - The identifier of the search engine (e.g., 'duckduckgo', 'google').
-   */
-  setSearchEngine(engine) {
-    this.searchEngine = engine
-    localStorage.setItem('shader_search_engine', engine)
-    this.updateState({ searchEngine: engine })
-  }
-
-  /**
-   * Initializes the client.
-   * Loads required scripts, establishes the transport connection, and registers the Service Worker.
-   * @returns {Promise<void>}
-   * @emits ready
-   * @emits error
-   */
-  async init() {
-    if (this.state.initialized) return
-
-    // Environment checks
-    if (!('serviceWorker' in navigator)) {
-      const isSecure = window.isSecureContext
-      const protocol = location.protocol
-      const hostname = location.hostname
-
-      const debugInfo = `
-        Debug Info:
-        - Secure Context: ${isSecure}
-        - Protocol: ${protocol}
-        - Hostname: ${hostname}
-        - ServiceWorker in navigator: ${'serviceWorker' in navigator}
-      `
-
-      const msg = `Service Workers are not supported. This application requires a secure context (HTTPS or localhost).\n${debugInfo}`
-      const error = new Error(msg)
-      console.error(msg)
-      this.updateState({ error: msg })
-      this.emit(ShaderClient.EVENTS.ERROR, error)
-      return
-    }
-
-    if (!('SharedWorker' in window)) {
-      console.warn('SharedWorker not supported. Performance might be degraded.')
-    }
-
-    this.updateState({ initialized: true })
-
+...
     try {
       // Load dependencies as ES modules
       if (this.options.loadBareMux) {
@@ -138,37 +56,17 @@ class ShaderClient {
       }
 
       if (this.options.loadUltraviolet) {
-        await this.loadScript(this.options.uvBundlePath + '?raw=true')
-        await this.loadScript(this.options.uvConfigPath + '?raw=true')
-        await this.loadScript(this.options.uvClientPath + '?raw=true')
+        await import(new URL(this.options.uvBundlePath, location.href).href)
+        await import(new URL(this.options.uvConfigPath, location.href).href)
+        await import(new URL(this.options.uvClientPath, location.href).href)
       }
 
       let workerUrl = new URL(this.options.workerPath, location.href).href
-      
-      // Fetch worker content to bypass esm.sh module shims and ensure raw script
-      try {
-        const fetchUrl = workerUrl + (workerUrl.includes('?') ? '&' : '?') + 'raw=true'
-        const response = await fetch(fetchUrl)
-        if (!response.ok) throw new Error(`Failed to fetch worker: ${response.statusText}`)
-        const workerScript = await response.text()
-        const blob = new Blob([workerScript], { type: 'application/javascript' })
-        workerUrl = URL.createObjectURL(blob)
-      } catch (e) {
-        console.warn('Failed to fetch worker raw content, falling back to direct URL:', e)
-        // Fallback to original URL (with cache buster if it was added)
-        workerUrl = new URL(this.options.workerPath + '?v=' + Date.now(), location.href).href
-      }
-
-      const connection = new window.BareMux.BareMuxConnection(workerUrl)
-      const wispURL = window.__uv$config.wisp
-      const transportUrl = new URL('vector/index.mjs', location.href).href
-
-      console.log('🔧 Setting transport to Wisp (Remote Server):', wispURL)
-      await connection.setTransport(transportUrl, [{ wisp: wispURL }])
+...
       console.log('✅ Vector transport configured')
 
       // Force update of SW
-      await this.registerServiceWorker('compute.js?v=' + Date.now() + '&raw=true')
+      await this.registerServiceWorker('compute.js?v=' + Date.now(), 'module')
 
       this.encodeUrl = (url) => {
         return window.location.origin + window.__uv$config.prefix + window.__uv$config.encodeUrl(url)
