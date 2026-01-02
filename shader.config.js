@@ -2,6 +2,11 @@
 var path = location.pathname
 var basePath = path.substring(0, path.lastIndexOf('/') + 1)
 
+// Ensure basePath is correct even in proxied pages
+if (path.includes('/calc/')) {
+    basePath = path.substring(0, path.indexOf('/calc/') + 1)
+}
+
 self.__uv$config = {
   prefix: basePath + 'calc/',
   bare: basePath + 'telemetry/',

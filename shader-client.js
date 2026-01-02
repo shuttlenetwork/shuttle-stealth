@@ -140,8 +140,7 @@ class ShaderClient {
       if (this.options.loadUltraviolet) {
         await this.loadScript(this.options.uvBundlePath + '?raw=true')
         await this.loadScript(this.options.uvConfigPath + '?raw=true')
-        const ShaderCanvasModule = await import(new URL(this.options.uvClientPath, location.href).href)
-        window.ShaderCanvas = ShaderCanvasModule.ShaderCanvas
+        await this.loadScript(this.options.uvClientPath + '?raw=true')
       }
 
       let workerUrl = new URL(this.options.workerPath, location.href).href
