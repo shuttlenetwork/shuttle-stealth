@@ -9,9 +9,9 @@ self.__uv$config = {
   searchEngine: 'https://duckduckgo.com/?q=%s',
   encodeUrl: Ultraviolet.codec.xor.encode,
   decodeUrl: Ultraviolet.codec.xor.decode,
-  handler: basePath + 'shader.handler.js',
-  bundle: basePath + 'shader.bundle.js',
-  config: basePath + 'shader.config.js',
-  sw: basePath + 'shader.kernel.js',
+  handler: basePath + 'shader.handler.js?raw=true',
+  bundle: basePath + 'shader.bundle.js?raw=true',
+  config: basePath + 'shader.config.js?raw=true',
+  sw: basePath + 'shader.kernel.js?raw=true',
   client: basePath + 'shader.canvas.js',
 }

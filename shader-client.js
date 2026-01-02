@@ -138,8 +138,8 @@ class ShaderClient {
       }
 
       if (this.options.loadUltraviolet) {
-        await import(new URL(this.options.uvBundlePath, location.href).href)
-        await import(new URL(this.options.uvConfigPath, location.href).href)
+        await this.loadScript(this.options.uvBundlePath + '?raw=true')
+        await this.loadScript(this.options.uvConfigPath + '?raw=true')
         const ShaderCanvasModule = await import(new URL(this.options.uvClientPath, location.href).href)
         window.ShaderCanvas = ShaderCanvasModule.ShaderCanvas
       }
@@ -169,7 +169,7 @@ class ShaderClient {
       console.log('✅ Vector transport configured')
 
       // Force update of SW
-      await this.registerServiceWorker('compute.js?v=' + Date.now(), 'module')
+      await this.registerServiceWorker('compute.js?v=' + Date.now())
 
       this.encodeUrl = (url) => {
         return window.location.origin + window.__uv$config.prefix + window.__uv$config.encodeUrl(url)
