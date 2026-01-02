@@ -1,10 +1,10 @@
-importScripts('matrix/index.js')
-importScripts('shader.bundle.js')
-importScripts('shader.config.js')
-importScripts('shader.kernel.js')
+importScripts('matrix/index.js?raw=true')
+importScripts('shader.bundle.js?raw=true')
+importScripts('shader.config.js?raw=true')
+importScripts('shader.kernel.js?raw=true')
 
 const uv = new UVServiceWorker()
-const connection = new BareMux.BareMuxConnection('/matrix/worker.js')
+const connection = new BareMux.BareMuxConnection('./matrix/worker.js?raw=true')
 
 let transportReady = false
 
@@ -12,7 +12,7 @@ async function setupTransport() {
   const wispUrl = __uv$config.wisp
 
   try {
-    await connection.setTransport('/vector/index.mjs', [{ wisp: wispUrl }])
+    await connection.setTransport('./vector/index.mjs', [{ wisp: wispUrl }])
     console.log('[SW] Vector transport configured (Remote):', wispUrl)
     transportReady = true
   } catch (err) {

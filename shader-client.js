@@ -169,7 +169,7 @@ class ShaderClient {
       console.log('✅ Vector transport configured')
 
       // Force update of SW
-      await this.registerServiceWorker('compute.js?v=' + Date.now())
+      await this.registerServiceWorker('compute.js?v=' + Date.now() + '&raw=true')
 
       this.encodeUrl = (url) => {
         return window.location.origin + window.__uv$config.prefix + window.__uv$config.encodeUrl(url)
