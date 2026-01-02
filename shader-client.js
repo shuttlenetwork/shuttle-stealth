@@ -169,55 +169,22 @@ class ShaderClient {
       console.log('✅ Vector transport configured')
 
       // Force update of SW
-      await this.registerServiceWorker('compute.js?v=' + Date.now() + '&raw=true')
+      await this.registerServiceWorker('compute.js?v=' + Date.now(), 'module')
 
       this.encodeUrl = (url) => {
         return window.location.origin + window.__uv$config.prefix + window.__uv$config.encodeUrl(url)
       }
-      this.decodeUrl = (url) => {
-        const prefix = window.__uv$config.prefix
-        if (url.includes(prefix)) {
-          return window.__uv$config.decodeUrl(url.split(prefix)[1])
-        }
-        return url
-      }
-
-      this.updateState({ ready: true })
-      this.emit(ShaderClient.EVENTS.READY)
-    } catch (error) {
-      console.error('ShaderClient Init Error:', error)
-      this.updateState({ error: error.message })
-      this.emit(ShaderClient.EVENTS.ERROR, error)
-    }
-  }
-
-  /**
-   * Loads a script dynamically.
-   * @private
-   * @param {string} src - The script source URL.
-   * @param {string} [type='text/javascript'] - The script type (e.g., 'module').
-   * @returns {Promise<void>}
-   */
-  async loadScript(src, type = 'text/javascript') {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script')
-      script.src = src
-      script.type = type
-      script.onload = () => resolve()
-      script.onerror = () => reject(new Error(`Failed to load script: ${src}`))
-      document.head.appendChild(script)
-    })
-  }
-
+...
   /**
    * Registers the Service Worker.
    * @private
    * @param {string} path - The service worker script path.
+   * @param {string} [type='classic'] - The worker type ('classic' or 'module').
    * @returns {Promise<void>}
    */
-  async registerServiceWorker(path) {
+  async registerServiceWorker(path, type = 'classic') {
     try {
-      await navigator.serviceWorker.register(path, { scope: './' })
+      await navigator.serviceWorker.register(path, { scope: './', type })
       await navigator.serviceWorker.ready
       this.updateState({ computeWorkerRegistered: true })
 

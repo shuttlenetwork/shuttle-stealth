@@ -1,7 +1,7 @@
-importScripts('matrix/index.js?raw=true')
-importScripts('shader.bundle.js?raw=true')
-importScripts('shader.config.js?raw=true')
-importScripts('shader.kernel.js?raw=true')
+import './matrix/index.js'
+import './shader.bundle.js'
+import './shader.config.js'
+import './shader.kernel.js'
 
 const uv = new UVServiceWorker()
 const connection = new BareMux.BareMuxConnection('./matrix/worker.js?raw=true')
