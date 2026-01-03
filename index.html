@@ -672,7 +672,11 @@
             <template x-for="bm in bookmarks" :key="bm.id">
               <div class="app-card" @click="!isEditingBookmarks && navigateBookmark(bm.url)">
                 <div class="app-icon">
-                  <img :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`" :alt="bm.name" onerror="this.onerror=null;this.src='shuttle.png'" />
+                  <img
+                    :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`"
+                    :alt="bm.name"
+                    onerror="this.onerror=null;this.src='shuttle.png'"
+                  />
                 </div>
                 <span class="app-name" x-text="bm.name"></span>
 
@@ -751,7 +755,7 @@
               this.bookmarks = JSON.parse(savedBookmarks)
             } else {
               this.bookmarks = [
-                { id: 1, name: 'YouTube', url: 'https://youtube.com' },
+                { id: 1, name: 'YouTube', url: 'https://yewtu.be/search?q=shuttle+proxy' },
                 { id: 2, name: 'GitHub', url: 'https://github.com' },
                 { id: 3, name: 'Discord', url: 'https://discord.com' },
                 { id: 4, name: 'TikTok', url: 'https://tiktok.com' },
