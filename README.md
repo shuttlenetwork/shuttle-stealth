@@ -1,6 +1,6 @@
 # Shuttle Stealth
 
-"Shuttle Stealth" is a modern, high-performance web-based proxy application that provides a seamless "Virtual Browser" experience. Built on the **Ultraviolet** engine and **BareMux** transport, it allows for secure, tab-based web navigation through a robust Service Worker architecture.
+"Shuttle Stealth" is a modern, high-performance web-based proxy application that provides a seamless "Virtual Browser" experience. Built on the **Shader Proxy Engine** and **BareMux** transport, it allows for secure, tab-based web navigation through a robust Service Worker architecture.
 
 ## 🚀 One-Click Deploy
 
@@ -16,7 +16,7 @@ Deploy Shuttle Stealth to your favorite platform with a single click:
 ## ✨ Features
 
 - **Virtual Browser UI**: Manage multiple browsing sessions with an intuitive tab-based interface.
-- **Ultraviolet Engine**: Advanced URL rewriting and proxying for maximum website compatibility.
+- **Shader Proxy Engine**: Advanced URL rewriting and proxying for maximum website compatibility.
 - **Wisp/Vector Transport**: High-speed network proxying via the latest transport protocols.
 - **Zero Configuration**: Works out-of-the-box with pre-configured backend endpoints.
 - **CDN Optimized**: Fully compatible with `esm.sh` and other module-based CDNs.
@@ -43,7 +43,7 @@ Deploy Shuttle Stealth to your favorite platform with a single click:
 
 - **`index.html`**: UI powered by Alpine.js.
 - **`shader-canvas.js`**: Tab and iframe manager.
-- **`shader-client.js`**: Core Ultraviolet client logic.
+- **`shader-client.js`**: Core Shader Proxy client logic.
 - **`compute.js`**: The proxy Service Worker.
 - **`.mjs` Files**: Optimized core scripts for CDN delivery.
 
