@@ -5,7 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Shuttle Stealth</title>
     <link rel="icon" type="image/png" href="shuttle.png" />
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <script
+      defer
+      data-domain="shuttle-stealth"
+      src="https://stats.senty.com.au/js/script.outbound-links.pageview-props.tagged-events.js"
+    ></script>
+    <script>
+      window.plausible =
+        window.plausible ||
+        function () {
+          ;(window.plausible.q = window.plausible.q || []).push(arguments)
+        }
+    </script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://unpkg.com/alpinejs" defer></script>
     <script type="module" src="shader-client.js"></script>
     <script type="module" src="shader-canvas.js"></script>
@@ -29,7 +44,8 @@
         box-sizing: border-box;
       }
 
-      html, body {
+      html,
+      body {
         height: 100%;
         margin: 0;
       }
@@ -125,7 +141,7 @@
       }
 
       .close-tab:hover {
-        background: rgba(255,255,255,0.1);
+        background: rgba(255, 255, 255, 0.1);
         opacity: 1;
       }
 
@@ -135,7 +151,10 @@
         opacity: 0.6;
         color: var(--text-secondary);
       }
-      .new-tab-btn:hover { opacity: 1; color: var(--text-primary); }
+      .new-tab-btn:hover {
+        opacity: 1;
+        color: var(--text-primary);
+      }
 
       .toolbar {
         background: var(--bg-secondary);
@@ -157,8 +176,13 @@
         align-items: center;
         justify-content: center;
       }
-      .nav-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
-      .nav-btn:disabled { opacity: 0.2; }
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+      }
+      .nav-btn:disabled {
+        opacity: 0.2;
+      }
 
       .url-bar {
         flex: 1;
@@ -180,7 +204,7 @@
       .url-bar input:focus {
         border-color: var(--accent);
       }
-      
+
       .spinner-icon {
         position: absolute;
         right: 10px;
@@ -209,7 +233,7 @@
         flex: 1;
         background: white; /* Iframe usually has white bg, but can be transparent */
       }
-      
+
       #canvas-container iframe {
         display: block;
         width: 100%;
@@ -278,7 +302,7 @@
         color: white;
         font-size: 0.95rem;
         outline: none;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
       }
 
       .search-container input:focus {
@@ -388,8 +412,13 @@
         cursor: pointer;
       }
 
-      .action-btn.remove:hover { background: var(--error); }
-      .action-btn.edit:hover { background: var(--accent); color: black; }
+      .action-btn.remove:hover {
+        background: var(--error);
+      }
+      .action-btn.edit:hover {
+        background: var(--accent);
+        color: black;
+      }
 
       .add-card {
         border-style: dashed;
@@ -404,7 +433,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.8);
+        background: rgba(0, 0, 0, 0.8);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -419,13 +448,23 @@
         width: 100%;
         max-width: 400px;
         padding: 25px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
       }
 
-      .modal h4 { margin-bottom: 20px; font-weight: 500; }
+      .modal h4 {
+        margin-bottom: 20px;
+        font-weight: 500;
+      }
 
-      .form-group { margin-bottom: 15px; }
-      .form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; }
+      .form-group {
+        margin-bottom: 15px;
+      }
+      .form-group label {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
       .form-group input {
         width: 100%;
         padding: 10px 12px;
@@ -435,7 +474,9 @@
         color: white;
         outline: none;
       }
-      .form-group input:focus { border-color: var(--accent); }
+      .form-group input:focus {
+        border-color: var(--accent);
+      }
 
       .modal-footer {
         display: flex;
@@ -451,10 +492,21 @@
         font-size: 0.9rem;
         border: none;
       }
-      .btn-cancel { background: transparent; color: var(--text-secondary); }
-      .btn-cancel:hover { color: white; }
-      .btn-save { background: var(--accent); color: black; font-weight: 600; }
-      .btn-save:hover { background: var(--accent-hover); }
+      .btn-cancel {
+        background: transparent;
+        color: var(--text-secondary);
+      }
+      .btn-cancel:hover {
+        color: white;
+      }
+      .btn-save {
+        background: var(--accent);
+        color: black;
+        font-weight: 600;
+      }
+      .btn-save:hover {
+        background: var(--accent-hover);
+      }
 
       /* Loading */
       .loading-overlay {
@@ -474,21 +526,23 @@
       .spinner {
         width: 30px;
         height: 30px;
-        border: 3px solid rgba(255,255,255,0.1);
+        border: 3px solid rgba(255, 255, 255, 0.1);
         border-top-color: var(--accent);
         border-radius: 50%;
         animation: spin 1s linear infinite;
         margin-bottom: 15px;
       }
-      @keyframes spin { to { transform: rotate(360deg); } }
-
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </head>
   <body x-data="shuttleApp()">
-
     <!-- Stars Background -->
     <div class="bg-effects">
-      <svg width="100%" height="100%" style="position: absolute;">
+      <svg width="100%" height="100%" style="position: absolute">
         <line x1="10%" y1="20%" x2="20%" y2="40%" stroke="white" stroke-opacity="0.1" stroke-width="1" />
         <line x1="20%" y1="40%" x2="15%" y2="60%" stroke="white" stroke-opacity="0.1" stroke-width="1" />
         <line x1="80%" y1="10%" x2="90%" y2="30%" stroke="white" stroke-opacity="0.1" stroke-width="1" />
@@ -496,9 +550,10 @@
         <line x1="5%" y1="80%" x2="15%" y2="90%" stroke="white" stroke-opacity="0.1" stroke-width="1" />
       </svg>
       <template x-for="n in 50">
-        <div class="star" 
-             :style="`left: ${Math.random()*100}%; top: ${Math.random()*100}%; width: ${Math.random()*3}px; height: ${Math.random()*3}px; opacity: ${Math.random()}`">
-        </div>
+        <div
+          class="star"
+          :style="`left: ${Math.random()*100}%; top: ${Math.random()*100}%; width: ${Math.random()*3}px; height: ${Math.random()*3}px; opacity: ${Math.random()}`"
+        ></div>
       </template>
     </div>
 
@@ -509,20 +564,21 @@
     </div>
 
     <!-- Top Bar -->
-    <div class="top-bar" x-show="ready" style="display: none;">
+    <div class="top-bar" x-show="ready" style="display: none">
       <div class="tabs-container">
         <template x-for="tab in tabs" :key="tab.id">
-          <div class="tab" 
-               :class="{ 'active': activeTabId === tab.id }"
-               @click="activateTab(tab.id)">
-               
+          <div class="tab" :class="{ 'active': activeTabId === tab.id }" @click="activateTab(tab.id)">
             <!-- Loading Spinner -->
             <template x-if="tab.loading">
-                <div class="spinner" style="width: 14px; height: 14px; border-width: 2px; margin-bottom: 0;"></div>
+              <div class="spinner" style="width: 14px; height: 14px; border-width: 2px; margin-bottom: 0"></div>
             </template>
             <!-- Favicon -->
             <template x-if="!tab.loading && tab.favicon">
-                <img :src="tab.favicon" style="width: 14px; height: 14px; border-radius: 2px;" onerror="this.style.display='none'" />
+              <img
+                :src="tab.favicon"
+                style="width: 14px; height: 14px; border-radius: 2px"
+                onerror="this.style.display='none'"
+              />
             </template>
 
             <span class="tab-title" x-text="tab.title || 'New Tab'"></span>
@@ -534,18 +590,54 @@
 
       <div class="toolbar">
         <button class="nav-btn" @click="goBack()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
         </button>
         <button class="nav-btn" @click="goForward()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
         </button>
         <button class="nav-btn" @click="reloadTab()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
         </button>
-        
+
         <div class="url-bar">
           <form @submit.prevent="navigate()">
-            <input type="text" x-model="currentUrlInput" placeholder="Search or enter URL...">
+            <input type="text" x-model="currentUrlInput" placeholder="Search or enter URL..." />
           </form>
           <div class="spinner-icon" x-show="isLoading"></div>
         </div>
@@ -553,8 +645,7 @@
     </div>
 
     <!-- Main Content -->
-    <div class="content-area" x-show="ready" style="display: none;">
-      
+    <div class="content-area" x-show="ready" style="display: none">
       <!-- ShaderCanvas manages iframes here -->
       <div id="canvas-container"></div>
 
@@ -564,36 +655,40 @@
           <div class="shuttle-logo">shuttle</div>
           <div class="stealth-tag">stealth</div>
         </div>
-        
+
         <div class="search-container">
           <form @submit.prevent="navigate()">
-            <input type="text" x-model="currentUrlInput" placeholder="search..." autofocus>
+            <input type="text" x-model="currentUrlInput" placeholder="search..." autofocus />
           </form>
         </div>
 
         <div class="quick-apps-section">
           <div class="section-header">
             <h3>Quick apps</h3>
-            <button class="edit-btn" @click="isEditingBookmarks = !isEditingBookmarks" x-text="isEditingBookmarks ? 'Done' : 'Edit'"></button>
+            <button
+              class="edit-btn"
+              @click="isEditingBookmarks = !isEditingBookmarks"
+              x-text="isEditingBookmarks ? 'Done' : 'Edit'"
+            ></button>
           </div>
 
           <div class="quick-apps-grid">
             <template x-for="bm in bookmarks" :key="bm.id">
               <div class="app-card" @click="!isEditingBookmarks && navigateBookmark(bm.url)">
                 <div class="app-icon">
-                  <img :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`" :alt="bm.name">
+                  <img :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`" :alt="bm.name" />
                 </div>
                 <span class="app-name" x-text="bm.name"></span>
-                
+
                 <div class="card-actions" x-show="isEditingBookmarks">
                   <div class="action-btn edit" @click.stop="editBookmark(bm)">✎</div>
                   <div class="action-btn remove" @click.stop="removeBookmark(bm.id)">×</div>
                 </div>
               </div>
             </template>
-            
+
             <div class="app-card add-card" x-show="isEditingBookmarks" @click="openAddModal()">
-              <div style="font-size: 20px;">+</div>
+              <div style="font-size: 20px">+</div>
               <span class="app-name">Add</span>
             </div>
           </div>
@@ -602,20 +697,20 @@
     </div>
 
     <!-- Bookmark Modal -->
-    <div class="modal-overlay" x-show="showBookmarkModal" x-transition.opacity style="display: none;">
+    <div class="modal-overlay" x-show="showBookmarkModal" x-transition.opacity style="display: none">
       <div class="modal" @click.away="showBookmarkModal = false">
         <h4 x-text="bookmarkForm.id ? 'Edit Bookmark' : 'Add Bookmark'"></h4>
         <div class="form-group">
           <label>Name</label>
-          <input type="text" x-model="bookmarkForm.name" placeholder="My App">
+          <input type="text" x-model="bookmarkForm.name" placeholder="My App" />
         </div>
         <div class="form-group">
           <label>URL</label>
-          <input type="text" x-model="bookmarkForm.url" placeholder="https://example.com">
+          <input type="text" x-model="bookmarkForm.url" placeholder="https://example.com" />
         </div>
         <div class="form-group">
           <label>Icon URL (optional)</label>
-          <input type="text" x-model="bookmarkForm.icon" placeholder="https://.../favicon.png">
+          <input type="text" x-model="bookmarkForm.icon" placeholder="https://.../favicon.png" />
         </div>
         <div class="modal-footer">
           <button class="btn btn-cancel" @click="showBookmarkModal = false">Cancel</button>
@@ -633,18 +728,24 @@
           tabs: [],
           activeTabId: null,
           currentUrlInput: '',
-          
+
           // Bookmarks state
           bookmarks: [],
           isEditingBookmarks: false,
           showBookmarkModal: false,
           bookmarkForm: { id: null, name: '', url: '', icon: '' },
 
-          get activeTab() { return this.tabs.find(t => t.id === this.activeTabId); },
-          get isLoading() { return this.activeTab ? this.activeTab.loading : false; },
-          get showNewTabUI() { 
-              if (!this.activeTab) return true;
-              return !this.activeTab.url || this.activeTab.url === 'about:blank' || this.activeTab.url.includes('/newtab.html');
+          get activeTab() {
+            return this.tabs.find((t) => t.id === this.activeTabId)
+          },
+          get isLoading() {
+            return this.activeTab ? this.activeTab.loading : false
+          },
+          get showNewTabUI() {
+            if (!this.activeTab) return true
+            return (
+              !this.activeTab.url || this.activeTab.url === 'about:blank' || this.activeTab.url.includes('/newtab.html')
+            )
           },
 
           async init() {
@@ -661,79 +762,83 @@
                 { id: 5, name: 'Google', url: 'https://google.com' },
                 { id: 6, name: 'Twitter/X', url: 'https://twitter.com' },
                 { id: 7, name: 'Roblox', url: 'https://roblox.com' },
-                { id: 8, name: 'GeForce', url: 'https://play.geforcenow.com' }
+                { id: 8, name: 'GeForce', url: 'https://play.geforcenow.com' },
               ]
               this.saveToStorage()
             }
 
             // 2. Import Libraries Dynamically
-            const { ShaderCanvas } = await import('./shader-canvas.js');
+            const { ShaderCanvas } = await import('./shader-canvas.js')
             // ShaderClient is imported by ShaderCanvas usually, or we can import it if needed for static props
-            const { ShaderClient } = await import('./shader-client.js');
+            const { ShaderClient } = await import('./shader-client.js')
 
             // 3. Initialize ShaderCanvas
-            this.canvas = new ShaderCanvas('canvas-container');
+            this.canvas = new ShaderCanvas('canvas-container')
 
             // Bind Events
-            this.canvas.on(ShaderCanvas.EVENTS.SURFACE_CREATED, (s) => this.refreshTabs());
-            this.canvas.on(ShaderCanvas.EVENTS.SURFACE_CLOSED, () => this.refreshTabs());
-            
+            this.canvas.on(ShaderCanvas.EVENTS.SURFACE_CREATED, (s) => this.refreshTabs())
+            this.canvas.on(ShaderCanvas.EVENTS.SURFACE_CLOSED, () => this.refreshTabs())
+
             this.canvas.on(ShaderCanvas.EVENTS.SURFACE_CHANGE, (s) => {
-              this.activeTabId = s ? s.id : null;
+              this.activeTabId = s ? s.id : null
               if (s) {
-                 this.updateFromSurface(s);
+                this.updateFromSurface(s)
               } else {
-                 this.currentUrlInput = '';
+                this.currentUrlInput = ''
               }
-            });
+            })
 
             this.canvas.on(ShaderCanvas.EVENTS.URL_CHANGE, (data) => {
-               // Don't show newtab.html in address bar
-               this.currentUrlInput = (data.decoded.includes('/newtab.html') || data.decoded === 'about:blank') ? '' : data.decoded;
-               this.refreshTabs();
-            });
+              // Don't show newtab.html in address bar
+              this.currentUrlInput =
+                data.decoded.includes('/newtab.html') || data.decoded === 'about:blank' ? '' : data.decoded
+              this.refreshTabs()
+            })
 
-            this.canvas.on(ShaderCanvas.EVENTS.TITLE_CHANGE, () => this.refreshTabs());
-            this.canvas.on(ShaderCanvas.EVENTS.FAVICON_CHANGE, () => this.refreshTabs());
-            this.canvas.on(ShaderCanvas.EVENTS.LOADING_START, () => this.refreshTabs());
-            this.canvas.on(ShaderCanvas.EVENTS.LOADING_STOP, () => this.refreshTabs());
+            this.canvas.on(ShaderCanvas.EVENTS.TITLE_CHANGE, () => this.refreshTabs())
+            this.canvas.on(ShaderCanvas.EVENTS.FAVICON_CHANGE, () => this.refreshTabs())
+            this.canvas.on(ShaderCanvas.EVENTS.LOADING_START, () => this.refreshTabs())
+            this.canvas.on(ShaderCanvas.EVENTS.LOADING_STOP, () => this.refreshTabs())
 
             this.canvas.on(ShaderCanvas.EVENTS.READY, () => {
-              this.ready = true;
-            });
+              this.ready = true
+            })
 
             this.canvas.on(ShaderCanvas.EVENTS.ERROR, (e) => {
-                console.error(e);
-            });
+              console.error(e)
+            })
 
             // Start with one tab
-            this.addTab();
+            this.addTab()
           },
 
           updateFromSurface(surface) {
-              if (surface.client) {
-                  const rawUrl = surface.client._lastUrl || '';
-                  const decoded = surface.client.decode(rawUrl);
-                  this.currentUrlInput = (decoded === 'about:blank') ? '' : decoded;
-              }
+            if (surface.client) {
+              const rawUrl = surface.client._lastUrl || ''
+              const decoded = surface.client.decode(rawUrl)
+              this.currentUrlInput = decoded === 'about:blank' ? '' : decoded
+            }
           },
 
           refreshTabs() {
             this.tabs = Array.from(this.canvas.surfaces.values()).map((s) => {
-               const client = s.client;
-               const rawUrl = client ? (client._lastUrl || '') : '';
-               const decoded = client ? client.decode(rawUrl) : '';
-               return {
-                  id: s.id,
-                  title: s.title,
-                  favicon: s.favicon,
-                  loading: client ? client.getState().loading : false,
-                  url: decoded
-               };
-            });
+              const client = s.client
+              const rawUrl = client ? client._lastUrl || '' : ''
+              const decoded = client ? client.decode(rawUrl) : ''
+              return {
+                id: s.id,
+                title: s.title,
+                favicon: s.favicon,
+                loading: client ? client.getState().loading : false,
+                url: decoded,
+              }
+            })
             // Update document title based on active tab
             if (this.activeTab) {
-                document.title = (this.activeTab.title && this.activeTab.title !== 'New Tab') ? `${this.activeTab.title} - Shuttle Stealth` : 'Shuttle Stealth';
+              document.title =
+                this.activeTab.title && this.activeTab.title !== 'New Tab'
+                  ? `${this.activeTab.title} - Shuttle Stealth`
+                  : 'Shuttle Stealth'
             }
           },
 
@@ -742,38 +847,38 @@
           },
 
           addTab() {
-            const id = this.canvas.createSurface();
-            this.canvas.switchSurface(id);
+            const id = this.canvas.createSurface()
+            this.canvas.switchSurface(id)
           },
 
           closeTab(id) {
-            this.canvas.closeSurface(id);
+            this.canvas.closeSurface(id)
           },
 
-          activateTab(id) { 
-             this.canvas.switchSurface(id);
+          activateTab(id) {
+            this.canvas.switchSurface(id)
           },
 
           navigate() {
-            if (!this.currentUrlInput) return;
-            this.canvas.navigate(this.currentUrlInput);
+            if (!this.currentUrlInput) return
+            this.canvas.navigate(this.currentUrlInput)
           },
 
           navigateBookmark(url) {
-            this.currentUrlInput = url;
-            this.navigate();
+            this.currentUrlInput = url
+            this.navigate()
           },
 
           reloadTab() {
-             this.canvas.reload();
+            this.canvas.reload()
           },
 
           goBack() {
-             this.canvas.goBack();
+            this.canvas.goBack()
           },
 
           goForward() {
-             this.canvas.goForward();
+            this.canvas.goForward()
           },
 
           // Bookmark management
@@ -788,25 +893,25 @@
           },
 
           removeBookmark(id) {
-            this.bookmarks = this.bookmarks.filter(b => b.id !== id)
+            this.bookmarks = this.bookmarks.filter((b) => b.id !== id)
             this.saveToStorage()
           },
 
           saveBookmark() {
             if (!this.bookmarkForm.name || !this.bookmarkForm.url) return
-            
+
             if (this.bookmarkForm.id) {
-              const idx = this.bookmarks.findIndex(b => b.id === this.bookmarkForm.id)
+              const idx = this.bookmarks.findIndex((b) => b.id === this.bookmarkForm.id)
               this.bookmarks[idx] = { ...this.bookmarkForm }
             } else {
               this.bookmarks.push({
                 ...this.bookmarkForm,
-                id: Date.now()
+                id: Date.now(),
               })
             }
             this.saveToStorage()
             this.showBookmarkModal = false
-          }
+          },
         }
       }
     </script>
