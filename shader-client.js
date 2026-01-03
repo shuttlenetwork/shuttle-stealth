@@ -138,9 +138,9 @@ class ShaderClient {
       }
 
       if (this.options.loadUltraviolet) {
-        await import(new URL(this.options.uvBundlePath, location.href).href)
-        await import(new URL(this.options.uvConfigPath, location.href).href)
-        await import(new URL(this.options.uvClientPath, location.href).href)
+        await this.loadScript(this.options.uvBundlePath + '?raw=true')
+        await this.loadScript(this.options.uvConfigPath + '?raw=true')
+        await this.loadScript(this.options.uvClientPath + '?raw=true')
       }
 
       let workerUrl = new URL(this.options.workerPath, location.href).href
