@@ -751,7 +751,7 @@
           async init() {
             // Define defaults
             const defaults = [
-              { id: 1, name: 'YouTube', url: 'https://yewtu.be/search?q=shuttle+proxy' },
+              { id: 1, name: 'YouTube', url: 'https://youtube.com?search=shuttle+proxy' },
               { id: 2, name: 'GitHub', url: 'https://github.com' },
               { id: 3, name: 'Discord', url: 'https://discord.com' },
               { id: 4, name: 'TikTok', url: 'https://tiktok.com' },
@@ -769,7 +769,7 @@
                 if (bm.icon && bm.icon.includes('google.com/s2/favicons?domain=about:blank')) {
                   bm.icon = ''
                 }
-                
+
                 // Update if it's a default bookmark (merge to get latest URL)
                 const defaultBm = defaults.find((d) => d.id === bm.id)
                 if (defaultBm) {
@@ -777,7 +777,7 @@
                 }
                 return bm
               })
-              
+
               // Save the updates immediately
               this.saveToStorage()
             } else {
