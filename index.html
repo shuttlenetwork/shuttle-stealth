@@ -570,9 +570,9 @@
               <!-- Favicon -->
               <template x-if="!tab.loading">
                 <img
-                  :src="tab.favicon || 'https://www.google.com/s2/favicons?domain=about:blank&sz=32'"
+                  :src="tab.favicon || 'shuttle.png'"
                   style="width: 14px; height: 14px; border-radius: 2px"
-                  onerror="this.src='https://www.google.com/s2/favicons?domain=about:blank&sz=32'"
+                  onerror="this.onerror=null;this.src='shuttle.png'"
                 />
               </template>
             </div>
@@ -672,7 +672,7 @@
             <template x-for="bm in bookmarks" :key="bm.id">
               <div class="app-card" @click="!isEditingBookmarks && navigateBookmark(bm.url)">
                 <div class="app-icon">
-                  <img :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`" :alt="bm.name" />
+                  <img :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`" :alt="bm.name" onerror="this.onerror=null;this.src='shuttle.png'" />
                 </div>
                 <span class="app-name" x-text="bm.name"></span>
 
