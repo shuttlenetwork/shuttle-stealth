@@ -47,7 +47,89 @@ class ShaderClient {
       loadUltraviolet: true,
       ...options,
     }
-...
+
+    this.engine = 'vector'
+    // Use the name from storage, or fallback to the config if available once init runs
+    this.searchEngine = localStorage.getItem('shader_search_engine') || 'duckduckgo'
+
+    /**
+     * @typedef {Object} ShaderState
+     * @property {boolean} initialized - Whether init() has been called.
+     * @property {boolean} ready - Whether the client is ready to navigate.
+     * @property {boolean} loading - Whether a page is currently loading in the proxied frame.
+     * @property {string} engine - Current transport engine (default: 'vector').
+     * @property {string} searchEngine - Current search engine identifier.
+     * @property {boolean} computeWorkerRegistered - Whether the service worker is registered.
+     * @property {Error|null} error - Last error encountered, if any.
+     */
+    this.state = {
+      initialized: false,
+      ready: false,
+      loading: false,
+      engine: this.engine,
+      searchEngine: this.searchEngine,
+      computeWorkerRegistered: false,
+      error: null,
+    }
+
+    this.listeners = {}
+    this.iframe = null
+    this._pollingInterval = null
+
+    // Automatically set frame if provided in options
+    if (this.options.frame) {
+        this.setFrame(this.options.frame)
+    }
+  }
+
+  /**
+   * Sets the preferred search engine.
+   * @param {string} engine - The identifier of the search engine (e.g., 'duckduckgo', 'google').
+   */
+  setSearchEngine(engine) {
+    this.searchEngine = engine
+    localStorage.setItem('shader_search_engine', engine)
+    this.updateState({ searchEngine: engine })
+  }
+
+  /**
+   * Initializes the client.
+   * Loads required scripts, establishes the transport connection, and registers the Service Worker.
+   * @returns {Promise<void>}
+   * @emits ready
+   * @emits error
+   */
+  async init() {
+    if (this.state.initialized) return
+
+    // Environment checks
+    if (!('serviceWorker' in navigator)) {
+      const isSecure = window.isSecureContext
+      const protocol = location.protocol
+      const hostname = location.hostname
+
+      const debugInfo = `
+        Debug Info:
+        - Secure Context: ${isSecure}
+        - Protocol: ${protocol}
+        - Hostname: ${hostname}
+        - ServiceWorker in navigator: ${'serviceWorker' in navigator}
+      `
+
+      const msg = `Service Workers are not supported. This application requires a secure context (HTTPS or localhost).\n${debugInfo}`
+      const error = new Error(msg)
+      console.error(msg)
+      this.updateState({ error: msg })
+      this.emit(ShaderClient.EVENTS.ERROR, error)
+      return
+    }
+
+    if (!('SharedWorker' in window)) {
+      console.warn('SharedWorker not supported. Performance might be degraded.')
+    }
+
+    this.updateState({ initialized: true })
+
     try {
       // Load dependencies as ES modules
       if (this.options.loadBareMux) {
