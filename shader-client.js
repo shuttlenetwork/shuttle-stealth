@@ -62,7 +62,27 @@ class ShaderClient {
       }
 
       let workerUrl = new URL(this.options.workerPath, location.href).href
-...
+      
+      // Fetch worker content to bypass esm.sh module shims and ensure raw script
+      try {
+        const fetchUrl = workerUrl + (workerUrl.includes('?') ? '&' : '?') + 'raw=true'
+        const response = await fetch(fetchUrl)
+        if (!response.ok) throw new Error(`Failed to fetch worker: ${response.statusText}`)
+        const workerScript = await response.text()
+        const blob = new Blob([workerScript], { type: 'application/javascript' })
+        workerUrl = URL.createObjectURL(blob)
+      } catch (e) {
+        console.warn('Failed to fetch worker raw content, falling back to direct URL:', e)
+        // Fallback to original URL (with cache buster if it was added)
+        workerUrl = new URL(this.options.workerPath + '?v=' + Date.now(), location.href).href
+      }
+
+      const connection = new window.BareMux.BareMuxConnection(workerUrl)
+      const wispURL = window.__uv$config.wisp
+      const transportUrl = new URL('vector/index.mjs', location.href).href
+
+      console.log('🔧 Setting transport to Wisp (Remote Server):', wispURL)
+      await connection.setTransport(transportUrl, [{ wisp: wispURL }])
       console.log('✅ Vector transport configured')
 
       // Force update of SW
