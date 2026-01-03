@@ -749,21 +749,39 @@
           },
 
           async init() {
-            // 1. Load bookmarks
+            // Define defaults
+            const defaults = [
+              { id: 1, name: 'YouTube', url: 'https://yewtu.be/search?q=shuttle+proxy' },
+              { id: 2, name: 'GitHub', url: 'https://github.com' },
+              { id: 3, name: 'Discord', url: 'https://discord.com' },
+              { id: 4, name: 'TikTok', url: 'https://tiktok.com' },
+              { id: 5, name: 'Google', url: 'https://google.com' },
+              { id: 6, name: 'Twitter/X', url: 'https://twitter.com' },
+              { id: 7, name: 'Roblox', url: 'https://roblox.com' },
+              { id: 8, name: 'GeForce', url: 'https://play.geforcenow.com' },
+            ]
+
+            // 1. Load and Merge bookmarks
             const savedBookmarks = localStorage.getItem('shuttle_bookmarks')
             if (savedBookmarks) {
-              this.bookmarks = JSON.parse(savedBookmarks)
+              this.bookmarks = JSON.parse(savedBookmarks).map((bm) => {
+                // Sanitize broken icons
+                if (bm.icon && bm.icon.includes('google.com/s2/favicons?domain=about:blank')) {
+                  bm.icon = ''
+                }
+                
+                // Update if it's a default bookmark (merge to get latest URL)
+                const defaultBm = defaults.find((d) => d.id === bm.id)
+                if (defaultBm) {
+                  return { ...bm, ...defaultBm }
+                }
+                return bm
+              })
+              
+              // Save the updates immediately
+              this.saveToStorage()
             } else {
-              this.bookmarks = [
-                { id: 1, name: 'YouTube', url: 'https://yewtu.be/search?q=shuttle+proxy' },
-                { id: 2, name: 'GitHub', url: 'https://github.com' },
-                { id: 3, name: 'Discord', url: 'https://discord.com' },
-                { id: 4, name: 'TikTok', url: 'https://tiktok.com' },
-                { id: 5, name: 'Google', url: 'https://google.com' },
-                { id: 6, name: 'Twitter/X', url: 'https://twitter.com' },
-                { id: 7, name: 'Roblox', url: 'https://roblox.com' },
-                { id: 8, name: 'GeForce', url: 'https://play.geforcenow.com' },
-              ]
+              this.bookmarks = defaults
               this.saveToStorage()
             }
 
