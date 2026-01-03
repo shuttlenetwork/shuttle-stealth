@@ -1,8 +1,8 @@
 /**
- * ShaderClient - Simplified Ultraviolet-only client
- * 
+ * ShaderClient - Simplified client
+ *
  * Manages the proxy connection, URL rewriting, and navigation state.
- * Handles the initialization of the underlying transport (Wisp/Epoxy) and the Service Worker (Ultraviolet).
+ * Handles the initialization of the underlying transport (Vector) and the Service Worker.
  */
 class ShaderClient {
   /**
@@ -27,8 +27,8 @@ class ShaderClient {
    * Creates an instance of ShaderClient.
    * @param {Object} [options={}] - Configuration options.
    * @param {string} [options.uvConfigPath='/shader.config.js'] - Path to the generated configuration file.
-   * @param {string} [options.uvBundlePath='/shader.bundle.js'] - Path to the Ultraviolet bundle.
-   * @param {string} [options.uvClientPath='/shader.canvas.js'] - Path to the Ultraviolet client script.
+   * @param {string} [options.uvBundlePath='/shader.bundle.js'] - Path to the Vector bundle.
+   * @param {string} [options.uvClientPath='/shader.canvas.js'] - Path to the Vector client script.
    * @param {string} [options.matrixPath='/matrix/index.js'] - Path to the BareMux library.
    * @param {string} [options.searchEngine='https://duckduckgo.com/?q=%s'] - Default search engine template.
    * @param {string|HTMLIFrameElement} [options.frame] - The iframe element or ID/selector to manage.
@@ -44,7 +44,7 @@ class ShaderClient {
       searchEngine: 'https://duckduckgo.com/?q=%s',
       timeout: 5000,
       loadBareMux: true,
-      loadUltraviolet: true,
+      loadVector: true,
       ...options,
     }
 
@@ -78,7 +78,7 @@ class ShaderClient {
 
     // Automatically set frame if provided in options
     if (this.options.frame) {
-        this.setFrame(this.options.frame)
+      this.setFrame(this.options.frame)
     }
   }
 
@@ -137,14 +137,14 @@ class ShaderClient {
         window.BareMux = BareMuxModule
       }
 
-      if (this.options.loadUltraviolet) {
+      if (this.options.loadVector) {
         await this.loadScript(this.options.uvBundlePath + '?raw=true')
         await this.loadScript(this.options.uvConfigPath + '?raw=true')
         await this.loadScript(this.options.uvClientPath + '?raw=true')
       }
 
       let workerUrl = new URL(this.options.workerPath, location.href).href
-      
+
       // Fetch worker content to bypass esm.sh module shims and ensure raw script
       try {
         const fetchUrl = workerUrl + (workerUrl.includes('?') ? '&' : '?') + 'raw=true'
@@ -240,13 +240,13 @@ class ShaderClient {
     if (!this.state.ready) throw new Error('Client not ready')
     const parsedUrl = this.parseUrl(url)
     const encodedUrl = this.encodeUrl(parsedUrl.toString())
-    
+
     this.updateState({ loading: true })
     this.emit(ShaderClient.EVENTS.LOADING_START)
     this.emit(ShaderClient.EVENTS.NAVIGATING, { original: url, encoded: encodedUrl })
-    
+
     if (this.iframe) {
-        this.iframe.src = encodedUrl;
+      this.iframe.src = encodedUrl
     }
 
     return encodedUrl
@@ -269,22 +269,22 @@ class ShaderClient {
    */
   setFrame(iframeOrSelector) {
     // Resolve element
-    let element = iframeOrSelector;
+    let element = iframeOrSelector
     if (typeof iframeOrSelector === 'string') {
-        element = document.getElementById(iframeOrSelector) || document.querySelector(iframeOrSelector);
+      element = document.getElementById(iframeOrSelector) || document.querySelector(iframeOrSelector)
     }
 
     if (!element || element.tagName !== 'IFRAME') {
-        throw new Error('Invalid frame element provided');
+      throw new Error('Invalid frame element provided')
     }
 
     // Cleanup previous if exists (though usually singleton)
     if (this.iframe && this._pollingInterval) {
-        clearInterval(this._pollingInterval);
+      clearInterval(this._pollingInterval)
     }
 
-    this.iframe = element;
-    this._attachListeners(this.iframe);
+    this.iframe = element
+    this._attachListeners(this.iframe)
   }
 
   /**
@@ -301,21 +301,21 @@ class ShaderClient {
 
     const checkMetadata = () => {
       try {
-        if (!iframe.contentDocument) return;
-        
+        if (!iframe.contentDocument) return
+
         // Title
-        const title = iframe.contentDocument.title;
+        const title = iframe.contentDocument.title
         if (title && title !== this._lastTitle) {
-            this._lastTitle = title;
-            this.emit(ShaderClient.EVENTS.TITLE_CHANGE, title);
+          this._lastTitle = title
+          this.emit(ShaderClient.EVENTS.TITLE_CHANGE, title)
         }
 
         // Favicon
-        const iconLink = iframe.contentDocument.querySelector("link[rel*='icon']");
-        const favicon = iconLink ? iconLink.href : '';
+        const iconLink = iframe.contentDocument.querySelector("link[rel*='icon']")
+        const favicon = iconLink ? iconLink.href : ''
         if (favicon !== this._lastFavicon) {
-            this._lastFavicon = favicon;
-            this.emit(ShaderClient.EVENTS.FAVICON_CHANGE, favicon);
+          this._lastFavicon = favicon
+          this.emit(ShaderClient.EVENTS.FAVICON_CHANGE, favicon)
         }
       } catch (e) {}
     }
@@ -327,9 +327,9 @@ class ShaderClient {
         // Stop loading state
         this.updateState({ loading: false })
         this.emit(ShaderClient.EVENTS.LOADING_STOP)
-        
+
         // Check metadata immediately on load
-        checkMetadata();
+        checkMetadata()
 
         if (this._lastUrl === encodedUrl) return
         this._lastUrl = encodedUrl
@@ -358,24 +358,24 @@ class ShaderClient {
     this._pollingInterval = setInterval(() => {
       try {
         // Check metadata periodically
-        checkMetadata();
+        checkMetadata()
 
         const currentUrl = iframe.contentWindow.location.href
-        
+
         // 1. Detect URL changes (e.g. pushState/SPAs)
         if (currentUrl !== this._lastUrl) {
           this._lastUrl = currentUrl
           const decodedUrl = this.decode(currentUrl)
           this.emit(ShaderClient.EVENTS.URL_CHANGE, { original: currentUrl, decoded: decodedUrl })
-          
+
           // Re-attach listeners as the DOM might be new or updated
           setupInternalTracking()
         }
 
         // 2. Safety: If we think we are loading, but the frame is actually done, stop loading.
         if (this.state.loading && iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
-           this.updateState({ loading: false })
-           this.emit(ShaderClient.EVENTS.LOADING_STOP)
+          this.updateState({ loading: false })
+          this.emit(ShaderClient.EVENTS.LOADING_STOP)
         }
       } catch (e) {}
     }, 500)
@@ -405,8 +405,8 @@ class ShaderClient {
         const withProtocol = new URL('http://' + trimmed)
         if (withProtocol.hostname.includes('.')) return withProtocol
       } catch {}
-      
-      const searchUrl = (window.__uv$config && window.__uv$config.searchEngine) || this.options.searchEngine;
+
+      const searchUrl = (window.__uv$config && window.__uv$config.searchEngine) || this.options.searchEngine
       return new URL(searchUrl.replace('%s', encodeURIComponent(trimmed)))
     }
   }
@@ -479,4 +479,4 @@ class ShaderClient {
 }
 
 window.ShaderClient = ShaderClient
-export { ShaderClient };
+export { ShaderClient }
