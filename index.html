@@ -26,9 +26,10 @@
     <script type="module" src="shader-canvas.js"></script>
     <style>
       :root {
+        /* Dark theme (default) */
         --bg-primary: #0a0c0f;
         --bg-secondary: #161b22;
-        --accent: #a7f3d0; /* Mint/Neon green glow */
+        --accent: #a7f3d0;
         --accent-hover: #6ee7b7;
         --text-primary: #e2e8f0;
         --text-secondary: #94a3b8;
@@ -36,6 +37,38 @@
         --success: #238636;
         --error: #da3633;
         --warning: #d29922;
+        --shadow-color: rgba(0, 0, 0, 0.5);
+      }
+
+      [data-theme="light"] {
+        --bg-primary: #ffffff;
+        --bg-secondary: #f6f8fa;
+        --accent: #10b981;
+        --accent-hover: #059669;
+        --text-primary: #1f2328;
+        --text-secondary: #57606a;
+        --border: #d0d7de;
+        --success: #1a7f37;
+        --error: #cf222e;
+        --warning: #9a6700;
+        --shadow-color: rgba(0, 0, 0, 0.1);
+      }
+
+      /* System preference detection */
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]):not([data-theme="light"]) {
+          --bg-primary: #ffffff;
+          --bg-secondary: #f6f8fa;
+          --accent: #10b981;
+          --accent-hover: #059669;
+          --text-primary: #1f2328;
+          --text-secondary: #57606a;
+          --border: #d0d7de;
+          --success: #1a7f37;
+          --error: #cf222e;
+          --warning: #9a6700;
+          --shadow-color: rgba(0, 0, 0, 0.1);
+        }
       }
 
       * {
@@ -57,6 +90,10 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+      }
+
+      body.new-tab-page {
+        overflow: auto;
       }
 
       /* Background Stars/Constellations Effect */
@@ -238,6 +275,16 @@
         display: flex;
       }
 
+      body.new-tab-page .content-area {
+        overflow: auto;
+        align-items: flex-start;
+        display: block;
+      }
+
+      body.new-tab-page #canvas-container {
+        display: none;
+      }
+
       #canvas-container {
         width: 100%;
         height: 100%;
@@ -258,15 +305,19 @@
         top: 0;
         left: 0;
         width: 100%;
-        height: 100%;
+        min-height: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        padding-top: 10vh;
+        padding: 10vh 0 40px;
         background: var(--bg-primary);
-        overflow-y: auto;
         z-index: 10;
+      }
+
+      body.new-tab-page .empty-state {
+        position: relative;
+        min-height: 100vh;
       }
 
       .logo-group {
@@ -307,24 +358,24 @@
       .search-container input {
         width: 100%;
         padding: 10px 18px;
-        background: #1c2128;
-        border: 1px solid #30363d;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 6px;
-        color: white;
+        color: var(--text-primary);
         font-size: 0.95rem;
         outline: none;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 4px 12px var(--shadow-color);
       }
 
       .search-container input:focus {
         border-color: var(--accent);
-        box-shadow: 0 0 15px rgba(167, 243, 208, 0.2);
+        box-shadow: 0 0 15px color-mix(in srgb, var(--accent) 20%, transparent);
       }
 
       /* Quick Apps / Bookmarks Grid */
       .quick-apps-section {
         width: 100%;
-        max-width: 480px;
+        max-width: 900px;
         padding: 0 20px;
       }
 
@@ -342,8 +393,8 @@
       }
 
       .edit-btn {
-        background: #1c2128;
-        border: 1px solid #30363d;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         color: var(--text-primary);
         padding: 3px 10px;
         border-radius: 4px;
@@ -353,14 +404,14 @@
 
       .quick-apps-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 10px;
       }
 
       .app-card {
-        background: #1c2128;
-        border: 1px solid #30363d;
-        border-radius: 8px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 10px;
         padding: 12px 8px;
         display: flex;
         flex-direction: column;
@@ -368,12 +419,16 @@
         gap: 8px;
         cursor: pointer;
         position: relative;
-        transition: transform 0.2s, background 0.2s;
+        transition: transform 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+        aspect-ratio: 1;
+        justify-content: center;
       }
 
       .app-card:hover {
-        background: #21262d;
-        transform: translateY(-2px);
+        background: var(--bg-primary);
+        transform: translateY(-3px);
+        border-color: var(--accent);
+        box-shadow: 0 5px 20px var(--shadow-color);
       }
 
       .app-icon {
@@ -388,6 +443,103 @@
         width: 100%;
         height: 100%;
         object-fit: contain;
+        content-visibility: auto;
+        contain-intrinsic-size: 24px 24px;
+      }
+
+      .app-card.game-bookmark {
+        position: relative;
+      }
+
+      .app-card.game-bookmark {
+        position: relative;
+      }
+
+      .app-card.game-bookmark .game-badge {
+        position: absolute;
+        top: -6px;
+        left: -6px;
+        width: 20px;
+        height: 20px;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        border: 2px solid var(--bg-secondary);
+        z-index: 5;
+      }
+
+      .app-card.game-bookmark .game-badge span {
+        animation: icon-shine 2s ease-in-out infinite;
+        filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.8));
+      }
+
+      @keyframes icon-shine {
+        0%, 100% { 
+          filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.6));
+          transform: scale(1);
+        }
+        50% { 
+          filter: drop-shadow(0 0 6px rgba(255, 255, 255, 1)) drop-shadow(0 0 10px rgba(167, 243, 208, 0.8));
+          transform: scale(1.1);
+        }
+      }
+
+      .app-card.full-image {
+        padding: 0;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .app-card.full-image .game-badge {
+        top: 4px;
+        left: 4px;
+      }
+
+      .app-card.full-image > div {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+
+      .full-game-cover {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 10px;
+        content-visibility: auto;
+        contain-intrinsic-size: 80px 80px;
+      }
+
+      .full-game-name {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        font-size: 0.6rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        padding: 6px 4px;
+        background: color-mix(in srgb, var(--bg-primary) 85%, transparent);
+        backdrop-filter: blur(4px);
+        transition: background 0.2s;
+        border-radius: 0 0 10px 10px;
+      }
+
+      .app-card.full-image:hover .full-game-name {
+        background: color-mix(in srgb, var(--bg-primary) 95%, transparent);
+      }
+
+      .drag-hint {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        opacity: 0.6;
       }
 
       .app-name {
@@ -413,9 +565,9 @@
         width: 22px;
         height: 22px;
         border-radius: 50%;
-        background: #30363d;
-        border: 1px solid #444c56;
-        color: white;
+        background: var(--border);
+        border: 1px solid var(--text-secondary);
+        color: var(--text-primary);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -437,6 +589,173 @@
         justify-content: center;
       }
 
+      /* Games Section */
+      .games-section {
+        width: 100%;
+        max-width: 900px;
+        padding: 0 20px;
+        margin-top: 40px;
+      }
+
+      .games-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+        padding-right: 10px;
+      }
+
+      .games-container::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .games-container::-webkit-scrollbar-track {
+        background: var(--bg-secondary);
+        border-radius: 4px;
+      }
+
+      .games-container::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+      }
+
+      .games-container::-webkit-scrollbar-thumb:hover {
+        background: var(--accent);
+      }
+
+      .game-card {
+        position: relative;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        cursor: pointer;
+        transition: transform 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+        aspect-ratio: 1;
+        overflow: hidden;
+      }
+
+      .game-card:hover,
+      .app-card:hover {
+        background: var(--bg-primary);
+        transform: translateY(-3px);
+        border-color: var(--accent);
+        box-shadow: 0 5px 20px var(--shadow-color);
+      }
+
+      .game-card:hover .game-name {
+        background: var(--bg-primary);
+      }
+
+      .game-card.is-dragging {
+        cursor: grabbing !important;
+        opacity: 0.5;
+      }
+
+      .game-card.is-dragging .game-cover {
+        border: 2px solid var(--accent);
+      }
+
+      /* Drag ghost styling */
+      .game-card:-webkit-drag {
+        opacity: 1 !important;
+        background: var(--bg-secondary);
+        border: 2px solid var(--accent);
+        box-shadow: 0 10px 30px var(--shadow-color);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      .game-card:-webkit-drag .game-cover {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .game-card:-webkit-drag .game-name {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: color-mix(in srgb, var(--bg-primary) 90%, transparent);
+        font-size: 0.6rem;
+        padding: 6px 4px;
+      }
+
+      .quick-apps-grid.drop-zone {
+        background: color-mix(in srgb, var(--accent) 5%, transparent);
+        border-radius: 12px;
+        border: 2px dashed var(--accent);
+        padding: 10px;
+      }
+
+      .game-cover {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        object-fit: cover;
+        background: var(--bg-secondary);
+        content-visibility: auto;
+        contain-intrinsic-size: 130px 130px;
+      }
+
+      .game-name {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        font-size: 0.7rem;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-align: center;
+        padding: 8px 6px;
+        background: color-mix(in srgb, var(--bg-primary) 85%, transparent);
+        backdrop-filter: blur(4px);
+        transition: background 0.2s;
+      }
+
+      .game-search-container {
+        margin-bottom: 15px;
+      }
+
+      .game-search-input {
+        width: 100%;
+        padding: 10px 15px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        outline: none;
+        transition: all 0.2s;
+      }
+
+      .game-search-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px rgba(167, 243, 208, 0.1);
+      }
+
+      .game-search-input::placeholder {
+        color: var(--text-secondary);
+      }
+
+      .games-loading {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+      }
+
+      .games-error {
+        text-align: center;
+        padding: 20px;
+        color: var(--error);
+        font-size: 0.85rem;
+      }
+
       /* Modal */
       .modal-overlay {
         position: fixed;
@@ -453,13 +772,13 @@
       }
 
       .modal {
-        background: #161b22;
-        border: 1px solid #30363d;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
         border-radius: 12px;
         width: 100%;
         max-width: 400px;
         padding: 25px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 10px 40px var(--shadow-color);
       }
 
       .modal h4 {
@@ -479,10 +798,10 @@
       .form-group input {
         width: 100%;
         padding: 10px 12px;
-        background: #0d1117;
-        border: 1px solid #30363d;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
         border-radius: 6px;
-        color: white;
+        color: var(--text-primary);
         outline: none;
       }
       .form-group input:focus {
@@ -508,7 +827,7 @@
         color: var(--text-secondary);
       }
       .btn-cancel:hover {
-        color: white;
+        color: var(--text-primary);
       }
       .btn-save {
         background: var(--accent);
@@ -537,7 +856,7 @@
       .spinner {
         width: 30px;
         height: 30px;
-        border: 3px solid rgba(255, 255, 255, 0.1);
+        border: 3px solid color-mix(in srgb, var(--text-primary) 10%, transparent);
         border-top-color: var(--accent);
         border-radius: 50%;
         animation: spin 1s linear infinite;
@@ -571,7 +890,11 @@
               <template x-if="!tab.loading">
                 <img
                   :src="tab.favicon || 'shuttle.png'"
+                  width="14"
+                  height="14"
                   style="width: 14px; height: 14px; border-radius: 2px"
+                  loading="lazy"
+                  decoding="async"
                   onerror="this.onerror=null;this.src='shuttle.png'"
                 />
               </template>
@@ -637,6 +960,57 @@
           </form>
           <div class="spinner-icon" x-show="isLoading"></div>
         </div>
+
+        <!-- Fullscreen button for games -->
+        <button 
+          class="nav-btn" 
+          @click="toggleFullscreen()" 
+          x-show="activeTab?.url?.startsWith('game://')"
+          title="Fullscreen"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+          </svg>
+        </button>
+
+        <!-- Theme toggle -->
+        <button 
+          class="nav-btn" 
+          @click="cycleTheme()"
+          :title="'Theme: ' + theme"
+        >
+          <!-- Sun icon for light mode -->
+          <svg x-show="theme === 'light'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+          <!-- Moon icon for dark mode -->
+          <svg x-show="theme === 'dark'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+          <!-- Monitor icon for system mode -->
+          <svg x-show="theme === 'system'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -660,7 +1034,7 @@
 
         <div class="quick-apps-section">
           <div class="section-header">
-            <h3>Quick apps</h3>
+            <h3 x-text="bookmarks.some(bm => bm.isGame) ? 'Quick apps and Games' : 'Quick apps'"></h3>
             <button
               class="edit-btn"
               @click="isEditingBookmarks = !isEditingBookmarks"
@@ -668,17 +1042,52 @@
             ></button>
           </div>
 
-          <div class="quick-apps-grid">
+          <div 
+            class="quick-apps-grid" 
+            @dragover.prevent="isDraggingOver = true"
+            @dragleave="isDraggingOver = false"
+            @drop.prevent="handleDrop($event)"
+            :class="{ 'drop-zone': isDraggingOver }"
+          >
             <template x-for="bm in bookmarks" :key="bm.id">
-              <div class="app-card" @click="!isEditingBookmarks && navigateBookmark(bm.url)">
-                <div class="app-icon">
-                  <img
-                    :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`"
-                    :alt="bm.name"
-                    onerror="this.onerror=null;this.src='shuttle.png'"
-                  />
-                </div>
-                <span class="app-name" x-text="bm.name"></span>
+              <div 
+                class="app-card" 
+                @click="!isEditingBookmarks && navigateBookmark(bm)" 
+                :class="{ 'game-bookmark': bm.isGame, 'full-image': bm.isGame }"
+              >
+                <template x-if="bm.isGame">
+                  <div>
+                    <div class="game-badge"><span>🎮</span></div>
+                    <img
+                      class="full-game-cover"
+                      :src="bm.icon ? 'https://images.weserv.nl/?url=' + encodeURIComponent(bm.icon) + '&w=160&h=160&fit=cover&output=webp' : 'shuttle.png'"
+                      :alt="bm.name"
+                      width="80"
+                      height="80"
+                      loading="lazy"
+                      decoding="async"
+                      onerror="this.onerror=null;this.src='shuttle.png'"
+                    />
+                    <span class="full-game-name" x-text="bm.name"></span>
+                  </div>
+                </template>
+                
+                <template x-if="!bm.isGame">
+                  <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                    <div class="app-icon">
+                      <img
+                        :src="bm.icon || `https://www.google.com/s2/favicons?domain=${bm.url}&sz=64`"
+                        :alt="bm.name"
+                        width="24"
+                        height="24"
+                        loading="lazy"
+                        decoding="async"
+                        onerror="this.onerror=null;this.src='shuttle.png'"
+                      />
+                    </div>
+                    <span class="app-name" x-text="bm.name"></span>
+                  </div>
+                </template>
 
                 <div class="card-actions" x-show="isEditingBookmarks">
                   <div class="action-btn edit" @click.stop="editBookmark(bm)">✎</div>
@@ -692,6 +1101,58 @@
               <span class="app-name">Add</span>
             </div>
           </div>
+        </div>
+
+        <!-- Games Section -->
+        <div class="games-section" x-data="gamesApp()" x-init="initGames()">
+          <div class="section-header">
+            <div>
+              <h3>Games</h3>
+              <span class="drag-hint">drag games to quick apps</span>
+            </div>
+            <span x-show="gamesLoading" style="font-size: 0.75rem; color: var(--text-secondary)">Loading...</span>
+          </div>
+
+          <div class="game-search-container" x-show="!gamesLoading && !gamesError">
+            <input
+              type="text"
+              x-model="gameSearch"
+              @input="filterGames()"
+              placeholder="Search games..."
+              class="game-search-input"
+            />
+          </div>
+
+          <div class="games-container" x-show="!gamesLoading && !gamesError">
+            <template x-for="game in filteredGames" :key="game.id">
+              <div 
+                class="game-card" 
+                @click="!isDragging && openGame(game)"
+                draggable="true"
+                @dragstart="isDragging = true; $el.classList.add('is-dragging'); $event.dataTransfer.setData('gameId', game.id); $event.dataTransfer.setData('gameData', JSON.stringify(game))"
+                @dragend="setTimeout(() => { isDragging = false; $el.classList.remove('is-dragging'); }, 50)"
+              >
+                <img
+                  class="game-cover"
+                  :src="'https://images.weserv.nl/?url=' + encodeURIComponent(game.cover.replace('{COVER_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/covers@main')) + '&w=260&h=260&fit=cover&output=webp'"
+                  :alt="game.name"
+                  width="130"
+                  height="130"
+                  loading="lazy"
+                  decoding="async"
+                  onerror="this.onerror=null;this.src='shuttle.png'"
+                />
+                <span class="game-name" x-text="game.name"></span>
+              </div>
+            </template>
+          </div>
+
+          <div class="games-loading" x-show="gamesLoading">
+            <div class="spinner" style="margin: 0 auto 15px; width: 24px; height: 24px; border-width: 2px"></div>
+            Loading games...
+          </div>
+
+          <div class="games-error" x-show="gamesError" x-text="gamesError"></div>
         </div>
       </div>
     </div>
@@ -734,6 +1195,10 @@
           isEditingBookmarks: false,
           showBookmarkModal: false,
           bookmarkForm: { id: null, name: '', url: '', icon: '' },
+          isDraggingOver: false,
+
+          // Theme state
+          theme: localStorage.getItem('shuttle-theme') || 'system',
 
           get activeTab() {
             return this.tabs.find((t) => t.id === this.activeTabId)
@@ -742,13 +1207,20 @@
             return this.activeTab ? this.activeTab.loading : false
           },
           get showNewTabUI() {
-            if (!this.activeTab) return true
-            return (
-              !this.activeTab.url || this.activeTab.url === 'about:blank' || this.activeTab.url.includes('/newtab.html')
-            )
+            const isNewTab = !this.activeTab || !this.activeTab.url || this.activeTab.url === 'about:blank' || this.activeTab.url.includes('/newtab.html')
+            // Toggle body scroll class
+            if (isNewTab) {
+              document.body.classList.add('new-tab-page')
+            } else {
+              document.body.classList.remove('new-tab-page')
+            }
+            return isNewTab
           },
 
           async init() {
+            // Initialize theme
+            this.applyTheme(this.theme)
+
             // Define defaults
             const defaults = [
               { id: 1, name: 'YouTube', url: 'https://youtube.com?search=shuttle+proxy' },
@@ -828,10 +1300,23 @@
 
             // Start with one tab
             this.addTab()
+
+            // Listen for game open events from games section
+            window.addEventListener('open-game-url', async (e) => {
+              const url = e.detail.url
+              // Convert to game:// protocol
+              const gameProtocolUrl = url.replace(/^https:\/\//, 'game://')
+              this.currentUrlInput = gameProtocolUrl
+              const id = await this.canvas.createGameSurface(url)
+              this.canvas.switchSurface(id)
+            })
           },
 
           updateFromSurface(surface) {
-            if (surface.client) {
+            if (surface.isGame) {
+              // Game surfaces (game:// protocol)
+              this.currentUrlInput = surface.protocolUrl || ''
+            } else if (surface.client) {
               const rawUrl = surface.client._lastUrl || ''
               const decoded = surface.client.decode(rawUrl)
               this.currentUrlInput = decoded === 'about:blank' ? '' : decoded
@@ -840,6 +1325,18 @@
 
           refreshTabs() {
             this.tabs = Array.from(this.canvas.surfaces.values()).map((s) => {
+              // Handle game surfaces (game:// protocol)
+              if (s.isGame) {
+                return {
+                  id: s.id,
+                  title: s.title,
+                  favicon: s.favicon || 'shuttle.png',
+                  loading: false,
+                  url: s.protocolUrl,
+                }
+              }
+              
+              // Handle proxy surfaces
               const client = s.client
               const rawUrl = client ? client._lastUrl || '' : ''
               const decoded = client ? client.decode(rawUrl) : ''
@@ -879,12 +1376,31 @@
 
           navigate() {
             if (!this.currentUrlInput) return
-            this.canvas.navigate(this.currentUrlInput)
+            // If no active surface or it's a game surface, create new proxy surface
+            const activeSurface = this.canvas.activeSurface
+            if (!activeSurface || activeSurface.isGame || !activeSurface.client) {
+              const id = this.canvas.createSurface(this.currentUrlInput)
+              this.canvas.switchSurface(id)
+            } else {
+              this.canvas.navigate(this.currentUrlInput)
+            }
           },
 
-          navigateBookmark(url) {
-            this.currentUrlInput = url
-            this.navigate()
+          async navigateBookmark(bm) {
+            // Open in new tab for both games and regular bookmarks
+            this.currentUrlInput = bm.url
+            
+            if (bm.isGame) {
+              // Games use game:// protocol
+              const gameProtocolUrl = bm.url.replace(/^https:\/\//, 'game://')
+              this.currentUrlInput = gameProtocolUrl
+              const id = await this.canvas.createGameSurface(bm.url)
+              this.canvas.switchSurface(id)
+            } else {
+              // Regular websites use proxy - pass URL to createSurface
+              const id = this.canvas.createSurface(bm.url)
+              this.canvas.switchSurface(id)
+            }
           },
 
           reloadTab() {
@@ -897,6 +1413,39 @@
 
           goForward() {
             this.canvas.goForward()
+          },
+
+          toggleFullscreen() {
+            const activeSurface = this.canvas.activeSurface
+            if (activeSurface?.iframe) {
+              const iframe = activeSurface.iframe
+              if (iframe.requestFullscreen) {
+                iframe.requestFullscreen()
+              } else if (iframe.webkitRequestFullscreen) {
+                iframe.webkitRequestFullscreen()
+              } else if (iframe.mozRequestFullScreen) {
+                iframe.mozRequestFullScreen()
+              }
+            }
+          },
+
+          // Theme management
+          cycleTheme() {
+            const themes = ['system', 'light', 'dark']
+            const currentIndex = themes.indexOf(this.theme)
+            const nextIndex = (currentIndex + 1) % themes.length
+            this.theme = themes[nextIndex]
+            this.applyTheme(this.theme)
+            localStorage.setItem('shuttle-theme', this.theme)
+          },
+
+          applyTheme(theme) {
+            const root = document.documentElement
+            if (theme === 'system') {
+              root.removeAttribute('data-theme')
+            } else {
+              root.setAttribute('data-theme', theme)
+            }
           },
 
           // Bookmark management
@@ -930,6 +1479,92 @@
             this.saveToStorage()
             this.showBookmarkModal = false
           },
+
+          handleDrop(event) {
+            this.isDraggingOver = false
+            const gameData = event.dataTransfer.getData('gameData')
+            if (!gameData) return
+            
+            try {
+              const game = JSON.parse(gameData)
+              // Check if game is already in bookmarks
+              const exists = this.bookmarks.some(bm => bm.url && bm.url.includes(game.id + '.html'))
+              if (exists) {
+                alert('This game is already in your Quick Apps!')
+                return
+              }
+              
+              // Add game to bookmarks
+              const coverUrl = game.cover.replace('{COVER_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/covers@main')
+              const htmlUrl = game.url.replace('{HTML_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/html@main')
+              
+              this.bookmarks.push({
+                id: 'game-' + game.id + '-' + Date.now(),
+                name: game.name,
+                url: htmlUrl,
+                icon: coverUrl,
+                isGame: true
+              })
+              
+              this.saveToStorage()
+            } catch (e) {
+              console.error('Error adding game to bookmarks:', e)
+            }
+          },
+        }
+      }
+
+      // Games App Component
+      function gamesApp() {
+        return {
+          games: [],
+          filteredGames: [],
+          gameSearch: '',
+          gamesLoading: true,
+          gamesError: null,
+          isDragging: false,
+          
+          async initGames() {
+            const zonesurls = [
+              'https://cdn.jsdelivr.net/gh/gn-math/assets@latest/zones.json',
+              'https://cdn.jsdelivr.net/gh/gn-math/assets@master/zones.json',
+              'https://cdn.jsdelivr.net/gh/gn-math/assets/zones.json'
+            ]
+            
+            const zonesURL = zonesurls[Math.floor(Math.random() * zonesurls.length)]
+            
+            try {
+              const response = await fetch(zonesURL + '?t=' + Date.now())
+              if (!response.ok) throw new Error('Failed to fetch games')
+              
+              const data = await response.json()
+              // Filter out external links (keep only local games with HTML files)
+              this.games = data.filter(game => !game.url.startsWith('http'))
+              this.filteredGames = this.games
+              this.gamesLoading = false
+            } catch (error) {
+              console.error('Error loading games:', error)
+              this.gamesError = 'Failed to load games. Please try again later.'
+              this.gamesLoading = false
+            }
+          },
+          
+          filterGames() {
+            const query = this.gameSearch.toLowerCase().trim()
+            if (!query) {
+              this.filteredGames = this.games
+            } else {
+              this.filteredGames = this.games.filter(game => 
+                game.name.toLowerCase().includes(query)
+              )
+            }
+          },
+          
+          openGame(game) {
+            const htmlUrl = game.url.replace('{HTML_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/html@main')
+            // Dispatch event to parent to open in new tab
+            window.dispatchEvent(new CustomEvent('open-game-url', { detail: { url: htmlUrl } }))
+          }
         }
       }
     </script>

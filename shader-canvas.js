@@ -72,17 +72,88 @@ class ShaderCanvas {
       iframe,
       client,
       title: 'New Tab',
-      favicon: ''
+      favicon: '',
+      ready: false
     };
 
     this.surfaces.set(id, surface);
     
     // Initialize the client
     client.init().then(() => {
+        surface.ready = true;
         if (url && url !== 'about:blank') {
             client.navigate(url);
         }
     });
+
+    this.emit(ShaderCanvas.EVENTS.SURFACE_CREATED, surface);
+
+    // Auto-switch if it's the first one
+    if (this.surfaces.size === 1) {
+      this.switchSurface(id);
+    }
+
+    return id;
+  }
+
+  /**
+   * Creates a game surface using game:// protocol.
+   * Fetches content and serves via srcdoc for same-origin benefits.
+   * @param {string} url - The HTTPS URL to fetch.
+   * @returns {Promise<string>} The ID of the new surface.
+   */
+  async createGameSurface(url) {
+    const id = 'surface-' + Math.random().toString(36).substr(2, 9);
+    
+    // Create iframe
+    const iframe = document.createElement('iframe');
+    iframe.id = id;
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.style.display = 'none';
+    iframe.style.backgroundColor = 'transparent';
+    
+    this.container.appendChild(iframe);
+
+    // Store protocol URL
+    const protocolUrl = url.replace(/^https:\/\//, 'game://');
+
+    // Create surface
+    const surface = {
+      id,
+      iframe,
+      client: null,
+      title: 'Loading Game...',
+      favicon: '',
+      isGame: true,
+      gameUrl: url,
+      protocolUrl: protocolUrl
+    };
+
+    this.surfaces.set(id, surface);
+
+    // Fetch and load game content
+    try {
+      this.emit(ShaderCanvas.EVENTS.LOADING_START);
+      const response = await fetch(url + '?t=' + Date.now());
+      const html = await response.text();
+      
+      // Extract title from HTML
+      const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+      const gameTitle = titleMatch ? titleMatch[1].trim() : 'Game';
+      
+      iframe.srcdoc = html;
+      surface.title = gameTitle;
+      
+      this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
+      this.emit(ShaderCanvas.EVENTS.TITLE_CHANGE, gameTitle);
+    } catch (err) {
+      console.error('Failed to load game:', err);
+      iframe.srcdoc = `<html><body style="background:#0a0c0f;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif;"><div>Failed to load game: ${err.message}</div></body></html>`;
+      surface.title = 'Error';
+      this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
+    }
 
     this.emit(ShaderCanvas.EVENTS.SURFACE_CREATED, surface);
 
@@ -113,15 +184,24 @@ class ShaderCanvas {
 
     this.emit(ShaderCanvas.EVENTS.SURFACE_CHANGE, surface);
     
-    // Re-emit state for UI updates
-    const state = surface.client.getState();
-    this.emit(ShaderCanvas.EVENTS.STATUS_CHANGE, state);
+    // Handle game surfaces (game:// protocol)
+    if (surface.isGame) {
+      // Game surfaces use srcdoc, no client
+      this.emit(ShaderCanvas.EVENTS.STATUS_CHANGE, { ready: true, loading: false });
+      return;
+    }
+    
+    // Re-emit state for UI updates (proxy surfaces only)
+    if (surface.client && surface.client.state) {
+      const state = surface.client.getState();
+      this.emit(ShaderCanvas.EVENTS.STATUS_CHANGE, state);
 
-    // Sync loading spinner state
-    if (state.loading) {
-        this.emit(ShaderCanvas.EVENTS.LOADING_START);
-    } else {
-        this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
+      // Sync loading spinner state
+      if (state.loading) {
+          this.emit(ShaderCanvas.EVENTS.LOADING_START);
+      } else {
+          this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
+      }
     }
   }
 

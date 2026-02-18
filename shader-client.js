@@ -253,6 +253,28 @@ class ShaderClient {
   }
 
   /**
+   * Navigates to a raw URL without proxy encoding.
+   * Used for direct content like games that don't need proxying.
+   * @param {string} url - The raw URL to navigate to.
+   * @returns {string} The URL that was navigated to.
+   * @emits loadingStart
+   * @emits navigating
+   */
+  navigateRaw(url) {
+    if (!this.state.ready) throw new Error('Client not ready')
+
+    this.updateState({ loading: true })
+    this.emit(ShaderClient.EVENTS.LOADING_START)
+    this.emit(ShaderClient.EVENTS.NAVIGATING, { original: url, encoded: url, raw: true })
+
+    if (this.iframe) {
+      this.iframe.src = url
+    }
+
+    return url
+  }
+
+  /**
    * Decodes a proxied URL.
    * @param {string} url - The proxied URL.
    * @returns {string} The original URL.
