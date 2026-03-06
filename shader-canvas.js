@@ -2,6 +2,115 @@
  * ShaderCanvas - Multi-tab manager for ShaderClient instances.
  * Acts as the "Virtual Browser" controller.
  */
+
+function stripSidebarAdsFromDoc(targetDoc) {
+  if (!targetDoc) return;
+
+  const adSelectors = [
+    '#sidebarad1',
+    '#sidebarad2',
+    '.sidebar-frame',
+    '.sidebar-close',
+    '[id*="sidebarad"]',
+    '[class*="sidebarad"]',
+    'iframe[width="160"][height="600"]',
+  ];
+
+  targetDoc.querySelectorAll(adSelectors.join(',')).forEach((el) => el.remove());
+
+  targetDoc.querySelectorAll('style').forEach((styleTag) => {
+    const css = (styleTag.textContent || '').toLowerCase();
+    if (css.includes('#sidebarad1') || css.includes('#sidebarad2')) styleTag.remove();
+  });
+
+  targetDoc.querySelectorAll('script').forEach((scriptTag) => {
+    const src = (scriptTag.getAttribute('src') || '').toLowerCase();
+    const code = (scriptTag.textContent || '').toLowerCase();
+
+    if (
+      src.includes('googletagmanager.com/gtag/js') ||
+      code.includes('sidebarad1') ||
+      code.includes('sidebarad2') ||
+      code.includes('sidebar-frame') ||
+      code.includes('allow-popups-to-escape-sandbox')
+    ) {
+      scriptTag.remove();
+    }
+  });
+}
+
+function sanitizeGameHtml(html) {
+  try {
+    const parser = new DOMParser();
+    const parsed = parser.parseFromString(html, 'text/html');
+
+    stripSidebarAdsFromDoc(parsed);
+
+    const blockStyle = parsed.createElement('style');
+    blockStyle.textContent = `
+      #sidebarad1,
+      #sidebarad2,
+      .sidebar-frame,
+      .sidebar-close,
+      [id*="sidebarad"],
+      [class*="sidebarad"],
+      iframe[width="160"][height="600"] {
+        display: none !important;
+        visibility: hidden !important;
+      }
+    `;
+    parsed.head.appendChild(blockStyle);
+
+    return '<!doctype html>\n' + parsed.documentElement.outerHTML;
+  } catch (err) {
+    console.warn('Game sanitize failed, blocking unsafe payload:', err);
+    return null;
+  }
+}
+
+function buildBlockedHtml(message) {
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blocked</title>
+    <style>
+      body {
+        margin: 0;
+        height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0a0c0f;
+        color: #fff;
+        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      .card {
+        width: min(620px, 92vw);
+        background: #111827;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 14px;
+        padding: 20px;
+      }
+      .title {
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+      .muted {
+        opacity: 0.85;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="title">Game load blocked in strict mode</div>
+      <div class="muted">${message}</div>
+    </div>
+  </body>
+</html>`;
+}
+
 class ShaderCanvas {
   /**
    * Available events.
@@ -128,31 +237,57 @@ class ShaderCanvas {
       favicon: '',
       isGame: true,
       gameUrl: url,
-      protocolUrl: protocolUrl
+      protocolUrl: protocolUrl,
+      adObserver: null
     };
 
     this.surfaces.set(id, surface);
 
-    // Fetch and load game content
+    // Fetch and load game content (strict sanitized mode)
     try {
       this.emit(ShaderCanvas.EVENTS.LOADING_START);
       const response = await fetch(url + '?t=' + Date.now());
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
       const html = await response.text();
-      
+      const sanitizedHtml = sanitizeGameHtml(html);
+      if (!sanitizedHtml) throw new Error('Sanitization failed');
+
       // Extract title from HTML
-      const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+      const titleMatch = sanitizedHtml.match(/<title[^>]*>([^<]*)<\/title>/i);
       const gameTitle = titleMatch ? titleMatch[1].trim() : 'Game';
-      
-      iframe.srcdoc = html;
+
+      iframe.addEventListener(
+        'load',
+        () => {
+          const frameDoc = iframe.contentDocument;
+          if (!frameDoc?.documentElement) return;
+
+          stripSidebarAdsFromDoc(frameDoc);
+
+          if (surface.adObserver) surface.adObserver.disconnect();
+          surface.adObserver = new MutationObserver(() => stripSidebarAdsFromDoc(frameDoc));
+          surface.adObserver.observe(frameDoc.documentElement, {
+            childList: true,
+            subtree: true,
+          });
+        },
+        { once: true }
+      );
+
+      iframe.srcdoc = sanitizedHtml;
       surface.title = gameTitle;
-      
+
       this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
       this.emit(ShaderCanvas.EVENTS.TITLE_CHANGE, gameTitle);
     } catch (err) {
-      console.error('Failed to load game:', err);
-      iframe.srcdoc = `<html><body style="background:#0a0c0f;color:#fff;display:flex;align-items:center;justify-content:center;font-family:sans-serif;"><div>Failed to load game: ${err.message}</div></body></html>`;
-      surface.title = 'Error';
+      console.error('Failed to load game in strict mode:', err);
+      iframe.srcdoc = buildBlockedHtml(
+        'This game was blocked because it could not be safely loaded through strict sanitization.'
+      );
+      surface.title = 'Blocked';
       this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
+      this.emit(ShaderCanvas.EVENTS.TITLE_CHANGE, 'Blocked');
     }
 
     this.emit(ShaderCanvas.EVENTS.SURFACE_CREATED, surface);
@@ -213,7 +348,13 @@ class ShaderCanvas {
     if (!this.surfaces.has(id)) return;
 
     const surface = this.surfaces.get(id);
-    
+
+    // Cleanup game ad observer (if any)
+    if (surface.adObserver) {
+      surface.adObserver.disconnect();
+      surface.adObserver = null;
+    }
+
     // Cleanup DOM
     surface.iframe.remove();
     this.surfaces.delete(id);

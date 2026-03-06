@@ -1,0 +1,28 @@
+{
+    "git": {
+        "remotes": {
+            "origin": "https://github.com/shuttlenetwork/shuttle-stealth.git"
+        },
+        "default_branch": "master"
+    },
+    "domains": [
+        "shuttle-stealth.vercel.app"
+    ],
+    "stack": {
+        "type": "static",
+        "language": "html",
+        "framework": null,
+        "frontend": null,
+        "database": null,
+        "nodejs": {
+            "detected": false,
+            "package_manager": null,
+            "audit": null
+        },
+        "composer": {
+            "detected": false,
+            "php_version": null,
+            "audit": null
+        }
+    }
+}
