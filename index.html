@@ -1103,7 +1103,7 @@
           </div>
         </div>
 
-        <!-- Games Section -->
+        <!-- Games Section - COMMENTED OUT
         <div class="games-section" x-data="gamesApp()" x-init="initGames()">
           <div class="section-header">
             <div>
@@ -1125,8 +1125,8 @@
 
           <div class="games-container" x-show="!gamesLoading && !gamesError">
             <template x-for="game in filteredGames" :key="game.id">
-              <div 
-                class="game-card" 
+              <div
+                class="game-card"
                 @click="!isDragging && openGame(game)"
                 draggable="true"
                 @dragstart="isDragging = true; $el.classList.add('is-dragging'); $event.dataTransfer.setData('gameId', game.id); $event.dataTransfer.setData('gameData', JSON.stringify(game))"
@@ -1154,6 +1154,7 @@
 
           <div class="games-error" x-show="gamesError" x-text="gamesError"></div>
         </div>
+        -->
       </div>
     </div>
 
