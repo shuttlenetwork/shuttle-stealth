@@ -1103,7 +1103,6 @@
           </div>
         </div>
 
-        <!-- Games Section - COMMENTED OUT
         <div class="games-section" x-data="gamesApp()" x-init="initGames()">
           <div class="section-header">
             <div>
@@ -1134,7 +1133,7 @@
               >
                 <img
                   class="game-cover"
-                  :src="'https://images.weserv.nl/?url=' + encodeURIComponent(game.cover.replace('{COVER_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/covers@main')) + '&w=260&h=260&fit=cover&output=webp'"
+                  :src="'https://images.weserv.nl/?url=' + encodeURIComponent(game.cover.replace('{COVER_URL}', 'https://cdn.jsdelivr.net/gh/freebuisness/covers@main')) + '&w=260&h=260&fit=cover&output=webp'"
                   :alt="game.name"
                   width="130"
                   height="130"
@@ -1154,7 +1153,6 @@
 
           <div class="games-error" x-show="gamesError" x-text="gamesError"></div>
         </div>
-        -->
       </div>
     </div>
 
@@ -1496,8 +1494,8 @@
               }
               
               // Add game to bookmarks
-              const coverUrl = game.cover.replace('{COVER_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/covers@main')
-              const htmlUrl = game.url.replace('{HTML_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/html@main')
+              const coverUrl = game.cover.replace('{COVER_URL}', 'https://cdn.jsdelivr.net/gh/freebuisness/covers@main')
+              const htmlUrl = game.url.replace('{HTML_URL}', 'https://cdn.jsdelivr.net/gh/freebuisness/html@main')
               
               this.bookmarks.push({
                 id: 'game-' + game.id + '-' + Date.now(),
@@ -1526,13 +1524,7 @@
           isDragging: false,
           
           async initGames() {
-            const zonesurls = [
-              'https://cdn.jsdelivr.net/gh/gn-math/assets@latest/zones.json',
-              'https://cdn.jsdelivr.net/gh/gn-math/assets@master/zones.json',
-              'https://cdn.jsdelivr.net/gh/gn-math/assets/zones.json'
-            ]
-            
-            const zonesURL = zonesurls[Math.floor(Math.random() * zonesurls.length)]
+            const zonesURL = 'https://cdn.jsdelivr.net/gh/freebuisness/assets@main/zones.json'
             
             try {
               const response = await fetch(zonesURL + '?t=' + Date.now())
@@ -1562,7 +1554,7 @@
           },
           
           openGame(game) {
-            const htmlUrl = game.url.replace('{HTML_URL}', 'https://cdn.jsdelivr.net/gh/gn-math/html@main')
+            const htmlUrl = game.url.replace('{HTML_URL}', 'https://cdn.jsdelivr.net/gh/freebuisness/html@main')
             // Dispatch event to parent to open in new tab
             window.dispatchEvent(new CustomEvent('open-game-url', { detail: { url: htmlUrl } }))
           }
