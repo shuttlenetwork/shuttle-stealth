@@ -53,7 +53,13 @@ function stripSidebarAdsFromDoc(targetDoc) {
   targetDoc.querySelectorAll('script').forEach((scriptTag) => {
     const src = (scriptTag.getAttribute('src') || '').toLowerCase();
     const code = (scriptTag.textContent || '').toLowerCase();
-    const isShuttleH5Ad = scriptTag.hasAttribute('data-shuttle-h5-ad');
+    const isShuttleH5Ad =
+      scriptTag.id === 'shuttle-h5-adsense' ||
+      scriptTag.id === 'shuttle-h5-bootstrap' ||
+      code.includes('shuttleH5Debug') ||
+      (src.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js') &&
+        scriptTag.getAttribute('data-ad-client') === 'ca-pub-3723218062742398' &&
+        scriptTag.getAttribute('data-ad-channel') === '9267153333');
     const isGnMathObfuscatedAd =
       code.length > 10000 &&
       (code.includes('uravpbgesyjdunqxkcf') ||
@@ -110,7 +116,7 @@ function stripSidebarAdsFromDoc(targetDoc) {
   });
 
   targetDoc.querySelectorAll('ins.adsbygoogle, [data-ad-client], [data-ad-slot]').forEach((el) => {
-    if (!el.hasAttribute('data-shuttle-h5-ad')) {
+    if (el.id !== 'shuttle-h5-adsense') {
       stats.adNodesRemoved += 1;
       el.remove();
     }
@@ -123,15 +129,15 @@ function stripSidebarAdsFromDoc(targetDoc) {
 function buildShuttleH5AdScripts(targetDoc) {
   const adsenseScript = targetDoc.createElement('script');
   adsenseScript.async = true;
+  adsenseScript.id = 'shuttle-h5-adsense';
   adsenseScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3723218062742398';
   adsenseScript.crossOrigin = 'anonymous';
-  adsenseScript.dataset.shuttleH5Ad = 'true';
   adsenseScript.setAttribute('data-ad-channel', '9267153333');
   adsenseScript.setAttribute('data-ad-client', 'ca-pub-3723218062742398');
   adsenseScript.setAttribute('data-ad-frequency-hint', '30s');
 
   const h5Bootstrap = targetDoc.createElement('script');
-  h5Bootstrap.dataset.shuttleH5Ad = 'true';
+  h5Bootstrap.id = 'shuttle-h5-bootstrap';
   h5Bootstrap.textContent = `
     (function () {
       window.adsbygoogle = window.adsbygoogle || [];
@@ -243,10 +249,12 @@ function buildShuttleH5AdScripts(targetDoc) {
 
 function injectShuttleH5Ads(targetDoc) {
   if (!targetDoc?.head) return;
-  targetDoc.querySelectorAll('script[data-shuttle-h5-ad]').forEach((el) => el.remove());
+  targetDoc.querySelectorAll('script').forEach((el) => {
+    if (el.id === 'shuttle-h5-adsense' || el.id === 'shuttle-h5-bootstrap' || el.textContent.includes('shuttleH5Debug')) el.remove();
+  });
   buildShuttleH5AdScripts(targetDoc).forEach((script) => targetDoc.head.appendChild(script));
   gameDebug('injected Shuttle H5 scripts', {
-    scriptCount: targetDoc.querySelectorAll('script[data-shuttle-h5-ad]').length,
+    scriptCount: targetDoc.querySelectorAll('#shuttle-h5-adsense, #shuttle-h5-bootstrap').length,
   });
 }
 
