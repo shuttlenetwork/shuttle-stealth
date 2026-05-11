@@ -493,8 +493,12 @@ class ShaderCanvas {
         status: response.status,
         htmlLength: html.length,
       });
-      const sanitizedHtml = sanitizeGameHtml(html);
-      if (!sanitizedHtml) throw new Error('Sanitization failed');
+      const sanitizedHtml = html;
+      gameDebug('strict sanitization skipped for investigation', {
+        id,
+        url,
+        htmlLength: sanitizedHtml.length,
+      });
 
       // Extract title from HTML
       const titleMatch = sanitizedHtml.match(/<title[^>]*>([^<]*)<\/title>/i);
@@ -506,13 +510,11 @@ class ShaderCanvas {
           const frameDoc = iframe.contentDocument;
           if (!frameDoc?.documentElement) return;
 
-          stripSidebarAdsFromDoc(frameDoc);
-
-          if (surface.adObserver) surface.adObserver.disconnect();
-          surface.adObserver = new MutationObserver(() => stripSidebarAdsFromDoc(frameDoc));
-          surface.adObserver.observe(frameDoc.documentElement, {
-            childList: true,
-            subtree: true,
+          gameDebug('raw game iframe loaded', {
+            id,
+            title: frameDoc.title,
+            scriptCount: frameDoc.scripts.length,
+            iframeCount: frameDoc.querySelectorAll('iframe').length,
           });
         },
         { once: true }
