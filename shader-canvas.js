@@ -26,17 +26,146 @@ function stripSidebarAdsFromDoc(targetDoc) {
   targetDoc.querySelectorAll('script').forEach((scriptTag) => {
     const src = (scriptTag.getAttribute('src') || '').toLowerCase();
     const code = (scriptTag.textContent || '').toLowerCase();
+    const isShuttleH5Ad = scriptTag.hasAttribute('data-shuttle-h5-ad');
+    const isGnMathObfuscatedAd =
+      code.length > 10000 &&
+      (code.includes('uravpbgesyjdunqxkcf') ||
+        code.includes('sffekk$fmzibajzwzbkuvp') ||
+        code.includes('ykjyjgqrqvlq') ||
+        code.includes('vwjqavltnv'));
 
     if (
-      src.includes('googletagmanager.com/gtag/js') ||
-      code.includes('sidebarad1') ||
-      code.includes('sidebarad2') ||
-      code.includes('sidebar-frame') ||
-      code.includes('allow-popups-to-escape-sandbox')
+      !isShuttleH5Ad &&
+      (isGnMathObfuscatedAd ||
+        src.includes('cdn.r9x.in') ||
+        src.includes('ailogic_gn-math') ||
+        src.includes('securepubads.g.doubleclick.net') ||
+        src.includes('pagead2.googlesyndication.com') ||
+        src.includes('googlesyndication.com') ||
+        src.includes('googletagservices.com') ||
+        src.includes('googletagmanager.com') ||
+        src.includes('google-analytics.com') ||
+        src.includes('reports.serviceclic.com') ||
+        src.includes('serviceclic.com') ||
+        src.includes('atpnd.com') ||
+        src.includes('tag.escalated.io') ||
+        src.includes('cdn.pushalert.co') ||
+        src.includes('rudderlabs.com') ||
+        src.includes('taboola.com') ||
+        src.includes('amazon-adsystem.com') ||
+        src.includes('connect.facebook.net') ||
+        src.includes('analytics.tiktok.com') ||
+        code.includes('ailogic_gn-math') ||
+        code.includes('gn-math.dev/reward') ||
+        code.includes('/gn-math.dev/reward') ||
+        code.includes('myw_rewarded_iframe') ||
+        code.includes('avrewardedviewed') ||
+        code.includes('window.avconfig') ||
+        code.includes('cdn.r9x.in') ||
+        code.includes('reports.serviceclic.com') ||
+        code.includes('serviceclic.com') ||
+        code.includes('hash1.atpnd.com') ||
+        code.includes('kv1.atpnd.com') ||
+        code.includes('allow-popups-to-escape-sandbox') ||
+        code.includes('sidebarad1') ||
+        code.includes('sidebarad2') ||
+        code.includes('sidebar-frame'))
     ) {
       scriptTag.remove();
     }
   });
+
+  targetDoc.querySelectorAll('ins.adsbygoogle, [data-ad-client], [data-ad-slot]').forEach((el) => {
+    if (!el.hasAttribute('data-shuttle-h5-ad')) el.remove();
+  });
+}
+
+function buildShuttleH5AdScripts(targetDoc) {
+  const adsenseScript = targetDoc.createElement('script');
+  adsenseScript.async = true;
+  adsenseScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3723218062742398';
+  adsenseScript.crossOrigin = 'anonymous';
+  adsenseScript.dataset.shuttleH5Ad = 'true';
+  adsenseScript.setAttribute('data-ad-channel', '9267153333');
+  adsenseScript.setAttribute('data-ad-client', 'ca-pub-3723218062742398');
+  adsenseScript.setAttribute('data-ad-frequency-hint', '30s');
+
+  const h5Bootstrap = targetDoc.createElement('script');
+  h5Bootstrap.dataset.shuttleH5Ad = 'true';
+  h5Bootstrap.textContent = `
+    (function () {
+      window.adsbygoogle = window.adsbygoogle || [];
+      var adBreak = window.adBreak = window.adBreak || function (o) {
+        window.adsbygoogle.push(o);
+      };
+      var adConfig = window.adConfig = window.adConfig || function (o) {
+        window.adsbygoogle.push(o);
+      };
+      var hasShownPreroll = false;
+
+      function runAdBreak(options) {
+        try {
+          adBreak(options);
+        } catch (err) {
+          console.warn('Shuttle H5 adBreak failed:', err);
+        }
+      }
+
+      function showPreroll() {
+        if (hasShownPreroll) return;
+        hasShownPreroll = true;
+        runAdBreak({
+          type: 'preroll',
+          name: 'game-start',
+          adBreakDone: function (placementInfo) {
+            console.log('Shuttle H5 preroll complete:', placementInfo && placementInfo.breakStatus);
+          }
+        });
+      }
+
+      window.showShuttleRewardedAd = function () {
+        runAdBreak({
+          type: 'reward',
+          name: 'user-requested-reward',
+          adBreakDone: function (placementInfo) {
+            console.log('Shuttle H5 rewarded complete:', placementInfo && placementInfo.breakStatus);
+          }
+        });
+      };
+
+      document.addEventListener('gameOver', function () {
+        runAdBreak({ type: 'next', name: 'game-over' });
+      });
+
+      document.addEventListener('gameWon', function () {
+        runAdBreak({
+          type: 'reward',
+          name: 'game-won',
+          adBreakDone: function (placementInfo) {
+            console.log('Shuttle H5 game-won rewarded complete:', placementInfo && placementInfo.breakStatus);
+          }
+        });
+      });
+
+      adConfig({
+        preloadAdBreaks: 'on',
+        onReady: function () {
+          console.log('Shuttle H5 Ads API is ready.');
+          showPreroll();
+        }
+      });
+
+      setTimeout(showPreroll, 3000);
+    })();
+  `;
+
+  return [adsenseScript, h5Bootstrap];
+}
+
+function injectShuttleH5Ads(targetDoc) {
+  if (!targetDoc?.head) return;
+  targetDoc.querySelectorAll('script[data-shuttle-h5-ad]').forEach((el) => el.remove());
+  buildShuttleH5AdScripts(targetDoc).forEach((script) => targetDoc.head.appendChild(script));
 }
 
 function sanitizeGameHtml(html) {
@@ -45,6 +174,7 @@ function sanitizeGameHtml(html) {
     const parsed = parser.parseFromString(html, 'text/html');
 
     stripSidebarAdsFromDoc(parsed);
+    injectShuttleH5Ads(parsed);
 
     const blockStyle = parsed.createElement('style');
     blockStyle.textContent = `
@@ -222,6 +352,9 @@ class ShaderCanvas {
     iframe.style.border = 'none';
     iframe.style.display = 'none';
     iframe.style.backgroundColor = 'transparent';
+    iframe.allow = 'accelerometer; autoplay; clipboard-read; clipboard-write; encrypted-media; fullscreen; gamepad; gyroscope; picture-in-picture; screen-wake-lock; web-share';
+    iframe.allowFullscreen = true;
+    iframe.referrerPolicy = 'no-referrer-when-downgrade';
     
     this.container.appendChild(iframe);
 

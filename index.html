@@ -24,6 +24,117 @@
     <script src="https://unpkg.com/alpinejs" defer></script>
     <script type="module" src="shader-client.js"></script>
     <script type="module" src="shader-canvas.js"></script>
+    <script
+      async
+      src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3723218062742398"
+      crossorigin="anonymous"
+      data-ad-channel="9267153333"
+      data-ad-client="ca-pub-3723218062742398"
+      data-ad-frequency-hint="30s"
+    ></script>
+    <script>
+      window.adsbygoogle = window.adsbygoogle || []
+      window.adConfig = window.adConfig || function (o) {
+        window.adsbygoogle.push(o)
+      }
+      window.adBreak = window.adBreak || window.adConfig
+      window.adIsShowing = false
+
+      function normalizeHistoryAfterAd() {
+        const cleanUrl = window.location.origin + window.location.pathname
+        if (window.location.href !== cleanUrl) {
+          window.history.replaceState(null, null, window.location.pathname)
+        }
+      }
+
+      function runH5AdBreak(config) {
+        if (typeof window.adBreak !== 'function') return false
+
+        try {
+          window.adBreak(config)
+          return true
+        } catch (error) {
+          console.warn('H5 ad break call failed:', error)
+          return false
+        }
+      }
+
+      window.addEventListener(
+        'popstate',
+        function (event) {
+          if (window.adIsShowing) {
+            event.preventDefault()
+            event.stopPropagation()
+            window.history.pushState(null, null, window.location.href)
+            return false
+          }
+        },
+        true
+      )
+
+      window.showPrerollAd = function () {
+        return runH5AdBreak({
+          type: 'preroll',
+          name: 'main-page-preroll',
+          beforeAd: () => {
+            console.log('Main H5 preroll about to start')
+          },
+          adBreakDone: (placementInfo) => {
+            console.log('Main H5 preroll complete:', placementInfo && placementInfo.breakStatus)
+          },
+        })
+      }
+
+      window.showGameOverInterstitialAd = function () {
+        return runH5AdBreak({
+          type: 'next',
+          name: 'main-page-next',
+          beforeAd: () => {
+            console.log('Main H5 next ad about to start')
+          },
+          adBreakDone: (placementInfo) => {
+            console.log('Main H5 next ad complete:', placementInfo && placementInfo.breakStatus)
+          },
+        })
+      }
+
+      window.showRewardedAd = function () {
+        return runH5AdBreak({
+          type: 'reward',
+          name: 'main-page-reward',
+          beforeAd: () => {
+            console.log('Main H5 reward ad about to start')
+          },
+          adBreakDone: (placementInfo) => {
+            console.log('Main H5 reward complete:', placementInfo && placementInfo.breakStatus)
+          },
+        })
+      }
+
+      window.adConfig({
+        preloadAdBreaks: 'on',
+        sound: 'on',
+        beforeAd: () => {
+          window.adIsShowing = true
+          window.history.pushState(null, null, window.location.href)
+        },
+        afterAd: () => {
+          window.adIsShowing = false
+          normalizeHistoryAfterAd()
+        },
+        adBreakDone: (placementInfo) => {
+          console.log('Main H5 global ad break done:', placementInfo)
+          if (window.adIsShowing) {
+            window.adIsShowing = false
+            normalizeHistoryAfterAd()
+          }
+        },
+        onReady: () => {
+          window.h5ApiReady = true
+          console.log('Main H5 Ads API is ready.')
+        },
+      })
+    </script>
     <style>
       :root {
         /* Dark theme (default) */
@@ -1325,7 +1436,7 @@
           async init() {
             // Initialize theme
             this.applyTheme(this.theme)
-            this.scheduleStartupPopup()
+            // Startup popup is disabled while testing the main-page H5 ad unit.
 
             // Define defaults
             const defaults = [
