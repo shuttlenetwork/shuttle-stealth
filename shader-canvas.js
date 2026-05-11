@@ -53,13 +53,6 @@ function stripSidebarAdsFromDoc(targetDoc) {
   targetDoc.querySelectorAll('script').forEach((scriptTag) => {
     const src = (scriptTag.getAttribute('src') || '').toLowerCase();
     const code = (scriptTag.textContent || '').toLowerCase();
-    const isShuttleH5Ad =
-      scriptTag.id === 'shuttle-h5-adsense' ||
-      scriptTag.id === 'shuttle-h5-bootstrap' ||
-      code.includes('shuttleH5Debug') ||
-      (src.includes('pagead2.googlesyndication.com/pagead/js/adsbygoogle.js') &&
-        scriptTag.getAttribute('data-ad-client') === 'ca-pub-3723218062742398' &&
-        scriptTag.getAttribute('data-ad-channel') === '9267153333');
     const isGnMathObfuscatedAd =
       code.length > 10000 &&
       (code.includes('uravpbgesyjdunqxkcf') ||
@@ -68,7 +61,6 @@ function stripSidebarAdsFromDoc(targetDoc) {
         code.includes('vwjqavltnv'));
 
     if (
-      !isShuttleH5Ad &&
       (isGnMathObfuscatedAd ||
         src.includes('cdn.r9x.in') ||
         src.includes('ailogic_gn-math') ||
@@ -116,146 +108,12 @@ function stripSidebarAdsFromDoc(targetDoc) {
   });
 
   targetDoc.querySelectorAll('ins.adsbygoogle, [data-ad-client], [data-ad-slot]').forEach((el) => {
-    if (el.id !== 'shuttle-h5-adsense') {
-      stats.adNodesRemoved += 1;
-      el.remove();
-    }
+    stats.adNodesRemoved += 1;
+    el.remove();
   });
 
   gameDebug('sanitized ad nodes', stats);
   return stats;
-}
-
-function buildShuttleH5AdScripts(targetDoc) {
-  const adsenseScript = targetDoc.createElement('script');
-  adsenseScript.async = true;
-  adsenseScript.id = 'shuttle-h5-adsense';
-  adsenseScript.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3723218062742398';
-  adsenseScript.crossOrigin = 'anonymous';
-  adsenseScript.setAttribute('data-ad-channel', '9267153333');
-  adsenseScript.setAttribute('data-ad-client', 'ca-pub-3723218062742398');
-  adsenseScript.setAttribute('data-ad-frequency-hint', '30s');
-
-  const h5Bootstrap = targetDoc.createElement('script');
-  h5Bootstrap.id = 'shuttle-h5-bootstrap';
-  h5Bootstrap.textContent = `
-    (function () {
-      window.adsbygoogle = window.adsbygoogle || [];
-      window.shuttleH5DebugLog = window.shuttleH5DebugLog || [];
-      function shuttleH5Debug(event, details) {
-        var entry = {
-          event: event,
-          details: details || {},
-          href: location.href,
-          readyState: document.readyState,
-          queueLength: Array.isArray(window.adsbygoogle) ? window.adsbygoogle.length : null,
-          ts: new Date().toISOString()
-        };
-        window.shuttleH5DebugLog.push(entry);
-        console.log('[Game H5 debug]', event, entry);
-        try {
-          if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ type: 'shuttle-h5-debug', entry: entry }, '*');
-          }
-        } catch (err) {}
-        return entry;
-      }
-      var adBreak = window.adBreak = window.adBreak || function (o) {
-        shuttleH5Debug('adBreak/adConfig queued', o);
-        window.adsbygoogle.push(o);
-      };
-      var adConfig = window.adConfig = window.adConfig || function (o) {
-        shuttleH5Debug('adConfig queued', o);
-        window.adsbygoogle.push(o);
-      };
-      var hasShownPreroll = false;
-
-      function runAdBreak(options) {
-        shuttleH5Debug('adBreak requested', options);
-        try {
-          adBreak(options);
-          shuttleH5Debug('adBreak accepted', options);
-        } catch (err) {
-          shuttleH5Debug('adBreak failed', { message: err.message, stack: err.stack });
-        }
-      }
-
-      function showPreroll() {
-        if (hasShownPreroll) return;
-        hasShownPreroll = true;
-        runAdBreak({
-          type: 'preroll',
-          name: 'game-start',
-          adBreakDone: function (placementInfo) {
-            shuttleH5Debug('preroll done', placementInfo);
-          }
-        });
-      }
-
-      window.showShuttleRewardedAd = function () {
-        runAdBreak({
-          type: 'reward',
-          name: 'user-requested-reward',
-          adBreakDone: function (placementInfo) {
-            shuttleH5Debug('manual reward done', placementInfo);
-          }
-        });
-      };
-
-      document.addEventListener('gameOver', function () {
-        runAdBreak({ type: 'next', name: 'game-over' });
-      });
-
-      document.addEventListener('gameWon', function () {
-        runAdBreak({
-          type: 'reward',
-          name: 'game-won',
-          adBreakDone: function (placementInfo) {
-            shuttleH5Debug('game-won reward done', placementInfo);
-          }
-        });
-      });
-
-      adConfig({
-        preloadAdBreaks: 'on',
-        onReady: function () {
-          shuttleH5Debug('H5 Ads API ready');
-          showPreroll();
-        }
-      });
-
-      window.addEventListener('error', function (event) {
-        shuttleH5Debug('window error', {
-          message: event.message,
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno
-        });
-      });
-
-      window.addEventListener('unhandledrejection', function (event) {
-        shuttleH5Debug('unhandled rejection', {
-          reason: event.reason && (event.reason.message || String(event.reason))
-        });
-      });
-
-      shuttleH5Debug('H5 bootstrap installed');
-      setTimeout(showPreroll, 3000);
-    })();
-  `;
-
-  return [adsenseScript, h5Bootstrap];
-}
-
-function injectShuttleH5Ads(targetDoc) {
-  if (!targetDoc?.head) return;
-  targetDoc.querySelectorAll('script').forEach((el) => {
-    if (el.id === 'shuttle-h5-adsense' || el.id === 'shuttle-h5-bootstrap' || el.textContent.includes('shuttleH5Debug')) el.remove();
-  });
-  buildShuttleH5AdScripts(targetDoc).forEach((script) => targetDoc.head.appendChild(script));
-  gameDebug('injected Shuttle H5 scripts', {
-    scriptCount: targetDoc.querySelectorAll('#shuttle-h5-adsense, #shuttle-h5-bootstrap').length,
-  });
 }
 
 function sanitizeGameHtml(html) {
@@ -264,7 +122,6 @@ function sanitizeGameHtml(html) {
     const parsed = parser.parseFromString(html, 'text/html');
 
     const sanitizeStats = stripSidebarAdsFromDoc(parsed);
-    injectShuttleH5Ads(parsed);
 
     const blockStyle = parsed.createElement('style');
     blockStyle.textContent = `
@@ -378,8 +235,8 @@ class ShaderCanvas {
     this.listeners = {};
 
     window.addEventListener('message', (event) => {
-      if (event?.data?.type === 'shuttle-h5-debug') {
-        gameDebug('iframe H5 message', event.data.entry);
+      if (event?.data?.__av || event?.data?.type === 'avdebug') {
+        gameDebug('iframe AV message', event.data);
       }
     });
   }
