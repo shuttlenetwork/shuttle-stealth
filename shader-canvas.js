@@ -3,8 +3,29 @@
  * Acts as the "Virtual Browser" controller.
  */
 
+function gameDebug(event, details = {}) {
+  const entry = {
+    event,
+    details,
+    ts: new Date().toISOString(),
+  };
+
+  window.shuttleGameDebugLog = window.shuttleGameDebugLog || [];
+  window.shuttleGameDebugLog.push(entry);
+  console.log('[Game debug]', event, entry);
+  return entry;
+}
+
 function stripSidebarAdsFromDoc(targetDoc) {
   if (!targetDoc) return;
+
+  const stats = {
+    selectorsRemoved: 0,
+    stylesRemoved: 0,
+    scriptsRemoved: 0,
+    adNodesRemoved: 0,
+    removedScriptReasons: {},
+  };
 
   const adSelectors = [
     '#sidebarad1',
@@ -16,11 +37,17 @@ function stripSidebarAdsFromDoc(targetDoc) {
     'iframe[width="160"][height="600"]',
   ];
 
-  targetDoc.querySelectorAll(adSelectors.join(',')).forEach((el) => el.remove());
+  targetDoc.querySelectorAll(adSelectors.join(',')).forEach((el) => {
+    stats.selectorsRemoved += 1;
+    el.remove();
+  });
 
   targetDoc.querySelectorAll('style').forEach((styleTag) => {
     const css = (styleTag.textContent || '').toLowerCase();
-    if (css.includes('#sidebarad1') || css.includes('#sidebarad2')) styleTag.remove();
+    if (css.includes('#sidebarad1') || css.includes('#sidebarad2')) {
+      stats.stylesRemoved += 1;
+      styleTag.remove();
+    }
   });
 
   targetDoc.querySelectorAll('script').forEach((scriptTag) => {
@@ -71,13 +98,26 @@ function stripSidebarAdsFromDoc(targetDoc) {
         code.includes('sidebarad2') ||
         code.includes('sidebar-frame'))
     ) {
+      const reason = isGnMathObfuscatedAd
+        ? 'gn-math-obfuscated'
+        : src
+          ? src
+          : 'inline-ad-script';
+      stats.scriptsRemoved += 1;
+      stats.removedScriptReasons[reason] = (stats.removedScriptReasons[reason] || 0) + 1;
       scriptTag.remove();
     }
   });
 
   targetDoc.querySelectorAll('ins.adsbygoogle, [data-ad-client], [data-ad-slot]').forEach((el) => {
-    if (!el.hasAttribute('data-shuttle-h5-ad')) el.remove();
+    if (!el.hasAttribute('data-shuttle-h5-ad')) {
+      stats.adNodesRemoved += 1;
+      el.remove();
+    }
   });
+
+  gameDebug('sanitized ad nodes', stats);
+  return stats;
 }
 
 function buildShuttleH5AdScripts(targetDoc) {
@@ -95,19 +135,42 @@ function buildShuttleH5AdScripts(targetDoc) {
   h5Bootstrap.textContent = `
     (function () {
       window.adsbygoogle = window.adsbygoogle || [];
+      window.shuttleH5DebugLog = window.shuttleH5DebugLog || [];
+      function shuttleH5Debug(event, details) {
+        var entry = {
+          event: event,
+          details: details || {},
+          href: location.href,
+          readyState: document.readyState,
+          queueLength: Array.isArray(window.adsbygoogle) ? window.adsbygoogle.length : null,
+          ts: new Date().toISOString()
+        };
+        window.shuttleH5DebugLog.push(entry);
+        console.log('[Game H5 debug]', event, entry);
+        try {
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'shuttle-h5-debug', entry: entry }, '*');
+          }
+        } catch (err) {}
+        return entry;
+      }
       var adBreak = window.adBreak = window.adBreak || function (o) {
+        shuttleH5Debug('adBreak/adConfig queued', o);
         window.adsbygoogle.push(o);
       };
       var adConfig = window.adConfig = window.adConfig || function (o) {
+        shuttleH5Debug('adConfig queued', o);
         window.adsbygoogle.push(o);
       };
       var hasShownPreroll = false;
 
       function runAdBreak(options) {
+        shuttleH5Debug('adBreak requested', options);
         try {
           adBreak(options);
+          shuttleH5Debug('adBreak accepted', options);
         } catch (err) {
-          console.warn('Shuttle H5 adBreak failed:', err);
+          shuttleH5Debug('adBreak failed', { message: err.message, stack: err.stack });
         }
       }
 
@@ -118,7 +181,7 @@ function buildShuttleH5AdScripts(targetDoc) {
           type: 'preroll',
           name: 'game-start',
           adBreakDone: function (placementInfo) {
-            console.log('Shuttle H5 preroll complete:', placementInfo && placementInfo.breakStatus);
+            shuttleH5Debug('preroll done', placementInfo);
           }
         });
       }
@@ -128,7 +191,7 @@ function buildShuttleH5AdScripts(targetDoc) {
           type: 'reward',
           name: 'user-requested-reward',
           adBreakDone: function (placementInfo) {
-            console.log('Shuttle H5 rewarded complete:', placementInfo && placementInfo.breakStatus);
+            shuttleH5Debug('manual reward done', placementInfo);
           }
         });
       };
@@ -142,7 +205,7 @@ function buildShuttleH5AdScripts(targetDoc) {
           type: 'reward',
           name: 'game-won',
           adBreakDone: function (placementInfo) {
-            console.log('Shuttle H5 game-won rewarded complete:', placementInfo && placementInfo.breakStatus);
+            shuttleH5Debug('game-won reward done', placementInfo);
           }
         });
       });
@@ -150,11 +213,27 @@ function buildShuttleH5AdScripts(targetDoc) {
       adConfig({
         preloadAdBreaks: 'on',
         onReady: function () {
-          console.log('Shuttle H5 Ads API is ready.');
+          shuttleH5Debug('H5 Ads API ready');
           showPreroll();
         }
       });
 
+      window.addEventListener('error', function (event) {
+        shuttleH5Debug('window error', {
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno
+        });
+      });
+
+      window.addEventListener('unhandledrejection', function (event) {
+        shuttleH5Debug('unhandled rejection', {
+          reason: event.reason && (event.reason.message || String(event.reason))
+        });
+      });
+
+      shuttleH5Debug('H5 bootstrap installed');
       setTimeout(showPreroll, 3000);
     })();
   `;
@@ -166,6 +245,9 @@ function injectShuttleH5Ads(targetDoc) {
   if (!targetDoc?.head) return;
   targetDoc.querySelectorAll('script[data-shuttle-h5-ad]').forEach((el) => el.remove());
   buildShuttleH5AdScripts(targetDoc).forEach((script) => targetDoc.head.appendChild(script));
+  gameDebug('injected Shuttle H5 scripts', {
+    scriptCount: targetDoc.querySelectorAll('script[data-shuttle-h5-ad]').length,
+  });
 }
 
 function sanitizeGameHtml(html) {
@@ -173,7 +255,7 @@ function sanitizeGameHtml(html) {
     const parser = new DOMParser();
     const parsed = parser.parseFromString(html, 'text/html');
 
-    stripSidebarAdsFromDoc(parsed);
+    const sanitizeStats = stripSidebarAdsFromDoc(parsed);
     injectShuttleH5Ads(parsed);
 
     const blockStyle = parsed.createElement('style');
@@ -190,6 +272,13 @@ function sanitizeGameHtml(html) {
       }
     `;
     parsed.head.appendChild(blockStyle);
+
+    gameDebug('game html sanitized', {
+      title: parsed.title,
+      htmlLengthBefore: html.length,
+      htmlLengthAfter: parsed.documentElement.outerHTML.length,
+      sanitizeStats,
+    });
 
     return '<!doctype html>\n' + parsed.documentElement.outerHTML;
   } catch (err) {
@@ -279,6 +368,12 @@ class ShaderCanvas {
     this.surfaces = new Map(); // id -> { id, client, iframe }
     this.activeSurfaceId = null;
     this.listeners = {};
+
+    window.addEventListener('message', (event) => {
+      if (event?.data?.type === 'shuttle-h5-debug') {
+        gameDebug('iframe H5 message', event.data.entry);
+      }
+    });
   }
 
   /**
@@ -343,6 +438,7 @@ class ShaderCanvas {
    */
   async createGameSurface(url) {
     const id = 'surface-' + Math.random().toString(36).substr(2, 9);
+    gameDebug('createGameSurface start', { id, url });
     
     // Create iframe
     const iframe = document.createElement('iframe');
@@ -383,6 +479,12 @@ class ShaderCanvas {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const html = await response.text();
+      gameDebug('fetched game html', {
+        id,
+        url,
+        status: response.status,
+        htmlLength: html.length,
+      });
       const sanitizedHtml = sanitizeGameHtml(html);
       if (!sanitizedHtml) throw new Error('Sanitization failed');
 
@@ -410,11 +512,22 @@ class ShaderCanvas {
 
       iframe.srcdoc = sanitizedHtml;
       surface.title = gameTitle;
+      gameDebug('game iframe srcdoc assigned', {
+        id,
+        title: gameTitle,
+        sanitizedLength: sanitizedHtml.length,
+      });
 
       this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
       this.emit(ShaderCanvas.EVENTS.TITLE_CHANGE, gameTitle);
     } catch (err) {
       console.error('Failed to load game in strict mode:', err);
+      gameDebug('createGameSurface failed', {
+        id,
+        url,
+        message: err.message,
+        stack: err.stack,
+      });
       iframe.srcdoc = buildBlockedHtml(
         'This game was blocked because it could not be safely loaded through strict sanitization.'
       );

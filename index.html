@@ -34,35 +34,83 @@
     ></script>
     <script>
       window.adsbygoogle = window.adsbygoogle || []
+      window.h5DebugLog = window.h5DebugLog || []
+      window.h5Debug = true
+
+      function logH5Debug(event, details = {}) {
+        const entry = {
+          event,
+          details,
+          href: window.location.href,
+          readyState: document.readyState,
+          adIsShowing: !!window.adIsShowing,
+          h5ApiReady: !!window.h5ApiReady,
+          queueLength: Array.isArray(window.adsbygoogle) ? window.adsbygoogle.length : null,
+          ts: new Date().toISOString(),
+        }
+
+        window.h5DebugLog.push(entry)
+        console.log('[H5 debug]', event, entry)
+        return entry
+      }
+
       window.adConfig = window.adConfig || function (o) {
+        logH5Debug('adConfig queued', o)
         window.adsbygoogle.push(o)
       }
       window.adBreak = window.adBreak || window.adConfig
       window.adIsShowing = false
+      window.h5ApiReady = false
+      window.dumpH5Debug = function () {
+        console.table(window.h5DebugLog)
+        return window.h5DebugLog
+      }
 
       function normalizeHistoryAfterAd() {
         const cleanUrl = window.location.origin + window.location.pathname
         if (window.location.href !== cleanUrl) {
+          logH5Debug('normalizing history', { from: window.location.href, to: cleanUrl })
           window.history.replaceState(null, null, window.location.pathname)
         }
       }
 
       function runH5AdBreak(config) {
-        if (typeof window.adBreak !== 'function') return false
+        logH5Debug('adBreak requested', config)
+        if (typeof window.adBreak !== 'function') {
+          logH5Debug('adBreak unavailable', { type: typeof window.adBreak })
+          return false
+        }
 
         try {
           window.adBreak(config)
+          logH5Debug('adBreak accepted', config)
           return true
         } catch (error) {
-          console.warn('H5 ad break call failed:', error)
+          logH5Debug('adBreak failed', { message: error.message, stack: error.stack })
           return false
         }
       }
+
+      window.addEventListener('error', (event) => {
+        logH5Debug('window error', {
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          colno: event.colno,
+        })
+      })
+
+      window.addEventListener('unhandledrejection', (event) => {
+        logH5Debug('unhandled rejection', {
+          reason: event.reason && (event.reason.message || String(event.reason)),
+        })
+      })
 
       window.addEventListener(
         'popstate',
         function (event) {
           if (window.adIsShowing) {
+            logH5Debug('blocked popstate during ad')
             event.preventDefault()
             event.stopPropagation()
             window.history.pushState(null, null, window.location.href)
@@ -115,15 +163,17 @@
         preloadAdBreaks: 'on',
         sound: 'on',
         beforeAd: () => {
+          logH5Debug('beforeAd')
           window.adIsShowing = true
           window.history.pushState(null, null, window.location.href)
         },
         afterAd: () => {
+          logH5Debug('afterAd')
           window.adIsShowing = false
           normalizeHistoryAfterAd()
         },
         adBreakDone: (placementInfo) => {
-          console.log('Main H5 global ad break done:', placementInfo)
+          logH5Debug('global adBreakDone', placementInfo)
           if (window.adIsShowing) {
             window.adIsShowing = false
             normalizeHistoryAfterAd()
@@ -131,9 +181,10 @@
         },
         onReady: () => {
           window.h5ApiReady = true
-          console.log('Main H5 Ads API is ready.')
+          logH5Debug('H5 Ads API ready')
         },
       })
+      logH5Debug('H5 bootstrap installed')
     </script>
     <style>
       :root {
