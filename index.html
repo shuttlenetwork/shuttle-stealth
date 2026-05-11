@@ -968,8 +968,12 @@
           x-ref="startupPopupFrame"
           class="startup-popup-frame"
           title="welcome"
-          loading="lazy"
-          allow="fullscreen; autoplay; gamepad"
+          loading="eager"
+          allow="accelerometer; autoplay; camera; clipboard-read; clipboard-write; encrypted-media; fullscreen; gamepad; gyroscope; microphone; midi; payment; picture-in-picture; screen-wake-lock; web-share; xr-spatial-tracking"
+          allowfullscreen
+          webkitallowfullscreen
+          mozallowfullscreen
+          referrerpolicy="no-referrer-when-downgrade"
         ></iframe>
       </div>
     </div>
@@ -1432,6 +1436,7 @@
               this.startupPopupSecondsRemaining = 10
               this.$nextTick(() => {
                 if (this.$refs.startupPopupFrame && !this.$refs.startupPopupFrame.src) {
+                  this.$refs.startupPopupFrame.allowFullscreen = true
                   this.$refs.startupPopupFrame.src = this.startupPopupUrl
                 }
               })
