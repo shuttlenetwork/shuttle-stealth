@@ -781,6 +781,75 @@
         box-shadow: 0 10px 40px var(--shadow-color);
       }
 
+      .startup-popup-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.82);
+        backdrop-filter: blur(6px);
+      }
+
+      .startup-popup {
+        width: 80vw;
+        height: 80vh;
+        min-width: 280px;
+        min-height: 360px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 20px 70px var(--shadow-color);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .startup-popup-bar {
+        height: 42px;
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 0 10px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .startup-popup-countdown {
+        color: var(--text-secondary);
+        font-size: 0.78rem;
+      }
+
+      .startup-popup-close {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .startup-popup-close:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+      }
+
+      .startup-popup-frame {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: white;
+      }
+
       .modal h4 {
         margin-bottom: 20px;
         font-weight: 500;
@@ -874,6 +943,35 @@
     <div x-show="!ready && !error" class="loading-overlay">
       <div class="spinner"></div>
       <p style="font-size: 0.9rem; opacity: 0.6">Initializing Shuttle Stealth...</p>
+    </div>
+
+    <!-- Startup Popup -->
+    <div class="startup-popup-overlay" x-show="showStartupPopup" x-transition.opacity style="display: none">
+      <div class="startup-popup">
+        <div class="startup-popup-bar">
+          <span
+            class="startup-popup-countdown"
+            x-show="!canCloseStartupPopup"
+            x-text="`Close available in ${startupPopupSecondsRemaining}s`"
+          ></span>
+          <button
+            type="button"
+            class="startup-popup-close"
+            :disabled="!canCloseStartupPopup"
+            :title="canCloseStartupPopup ? 'Close' : 'Please wait before closing'"
+            @click="closeStartupPopup()"
+          >
+            ×
+          </button>
+        </div>
+        <iframe
+          class="startup-popup-frame"
+          src="https://dinosaurgame.app"
+          title="Dinosaur Game"
+          loading="lazy"
+          allow="fullscreen; autoplay; gamepad"
+        ></iframe>
+      </div>
     </div>
 
     <!-- Top Bar -->
@@ -1188,6 +1286,9 @@
           tabs: [],
           activeTabId: null,
           currentUrlInput: '',
+          showStartupPopup: false,
+          canCloseStartupPopup: false,
+          startupPopupSecondsRemaining: 10,
 
           // Bookmarks state
           bookmarks: [],
@@ -1219,6 +1320,7 @@
           async init() {
             // Initialize theme
             this.applyTheme(this.theme)
+            this.scheduleStartupPopup()
 
             // Define defaults
             const defaults = [
@@ -1320,6 +1422,29 @@
               const decoded = surface.client.decode(rawUrl)
               this.currentUrlInput = decoded === 'about:blank' ? '' : decoded
             }
+          },
+
+          scheduleStartupPopup() {
+            setTimeout(() => {
+              this.showStartupPopup = true
+              this.canCloseStartupPopup = false
+              this.startupPopupSecondsRemaining = 10
+
+              const closeTimer = setInterval(() => {
+                this.startupPopupSecondsRemaining -= 1
+
+                if (this.startupPopupSecondsRemaining <= 0) {
+                  clearInterval(closeTimer)
+                  this.startupPopupSecondsRemaining = 0
+                  this.canCloseStartupPopup = true
+                }
+              }, 1000)
+            }, 3000)
+          },
+
+          closeStartupPopup() {
+            if (!this.canCloseStartupPopup) return
+            this.showStartupPopup = false
           },
 
           refreshTabs() {
