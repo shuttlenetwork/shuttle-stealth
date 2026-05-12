@@ -188,31 +188,35 @@ function stripSidebarAdsFromDoc(targetDoc) {
 }
 
 function sanitizeGameHtml(html) {
-  try {
-    const parser = new DOMParser();
-    const parsed = parser.parseFromString(html, 'text/html');
+  const parser = new DOMParser();
+  const parsed = parser.parseFromString(html, 'text/html');
 
+  try {
     // Step 1: Strip the CDN owner's ad scripts and trackers
     const sanitizeStats = stripSidebarAdsFromDoc(parsed);
 
     // Step 2: Inject our rewarded ad bridge (replaces gn-math)
     if (YOUR_H5_ADS.enabled) {
-      const bridgeFragment = parser
-        .createRange()
-        .createContextualFragment(buildYourAdBridgeScript());
-      if (parsed.body) {
-        parsed.body.appendChild(bridgeFragment);
-      } else {
-        parsed.documentElement.appendChild(bridgeFragment);
+      try {
+        const bridgeHtml = buildYourAdBridgeScript();
+        const bridgeFragment = parser
+          .createRange()
+          .createContextualFragment(bridgeHtml);
+        const target = parsed.body || parsed.documentElement;
+        if (target) target.appendChild(bridgeFragment);
+      } catch (bridgeErr) {
+        gameDebug('bridge injection failed (game still loads)', { error: bridgeErr.message });
       }
     }
 
-    // Step 3: Hide gn-math sidebar containers (not needed for rewarded)
-    const blockStyle = parsed.createElement('style');
-    blockStyle.textContent = `
-      #sidebarad1, #sidebarad2 { display: none !important; }
-    `;
-    parsed.head.appendChild(blockStyle);
+    // Step 3: Hide gn-math sidebar containers
+    try {
+      const blockStyle = parsed.createElement('style');
+      blockStyle.textContent = '#sidebarad1,#sidebarad2{display:none!important}';
+      if (parsed.head) parsed.head.appendChild(blockStyle);
+    } catch (cssErr) {
+      // non-critical
+    }
 
     gameDebug('game html sanitized', {
       title: parsed.title,
@@ -224,8 +228,9 @@ function sanitizeGameHtml(html) {
 
     return '<!doctype html>\n' + parsed.documentElement.outerHTML;
   } catch (err) {
-    console.warn('Game sanitize failed, blocking unsafe payload:', err);
-    return null;
+    // If anything fails, return the raw HTML so the game still loads
+    gameDebug('sanitization error, serving raw html', { error: err.message, stack: err.stack });
+    return html;
   }
 }
 
