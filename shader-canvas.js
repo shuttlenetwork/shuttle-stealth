@@ -21,15 +21,29 @@ function gameDebug(event, details = {}) {
 // rewarded GPT unit path with yours.
 const YOUR_H5_ADS = {
   rewardedUnitPath: '/22921845643/H5_Game_Rewarded',
+  rewardedElementId: 'gpt_unit_/22921845643/H5_Game_Rewarded',
   enabled: true,
 };
 
+function replaceRewardedUnitStrings(html) {
+  if (!YOUR_H5_ADS.enabled || !html) return html;
+
+  return html
+    // Exact observed gn-math rewarded element id/path.
+    .replaceAll('gpt_unit_/23334778486/gn-math.dev/REWARD-1_5', YOUR_H5_ADS.rewardedElementId)
+    .replaceAll('/23334778486/gn-math.dev/REWARD-1_5', YOUR_H5_ADS.rewardedUnitPath)
+
+    // Generic future-proof replacements for gn-math rewarded GPT ids/paths.
+    .replace(/gpt_unit_\/\d+\/[^'"<>()\s]+\/REWARD[-_\w]*/g, YOUR_H5_ADS.rewardedElementId)
+    .replace(/\/\d+\/[^'"<>()\s]+\/REWARD[-_\w]*/g, YOUR_H5_ADS.rewardedUnitPath);
+}
+
 /**
  * Injected before the game/gn-math scripts run.
- * It monkey-patches GPT's rewarded slot creation only:
- *   googletag.defineOutOfPageSlot(oldPath, REWARDED)
- * becomes:
- *   googletag.defineOutOfPageSlot('/22921845643/H5_Game_Rewarded', REWARDED)
+ * Backup runtime patch for GPT slot creation:
+ *   googletag.defineOutOfPageSlot(oldRewardPath, REWARDED)
+ *   googletag.defineSlot(oldRewardPath, ...)
+ * become your unit path.
  *
  * It does NOT create banners, iframes, or its own ad UI.
  */
@@ -39,6 +53,9 @@ function buildRewardedUnitOverrideScript() {
     '(function(){',
     "  'use strict';",
     "  var TARGET_UNIT = '" + YOUR_H5_ADS.rewardedUnitPath + "';",
+    '  function isRewardedUnit(path){',
+    '    return typeof path === "string" && /REWARD/i.test(path);',
+    '  }',
     '  function isRewardedFormat(format, gt){',
     '    try {',
     '      return !!format && (',
@@ -63,13 +80,24 @@ function buildRewardedUnitOverrideScript() {
     '    if (typeof gt.defineOutOfPageSlot === "function" && !gt.defineOutOfPageSlot.__shuttleRewardedPatch){',
     '      var originalDefineOOP = gt.defineOutOfPageSlot;',
     '      gt.defineOutOfPageSlot = function(adUnitPath, format){',
-    '        if (isRewardedFormat(format, gt)) {',
+    '        if (isRewardedFormat(format, gt) || isRewardedUnit(adUnitPath)) {',
     '          console.log("[ShuttleAds] Replacing rewarded GPT unit", adUnitPath, "→", TARGET_UNIT);',
     '          adUnitPath = TARGET_UNIT;',
     '        }',
     '        return originalDefineOOP.call(this, adUnitPath, format);',
     '      };',
     '      gt.defineOutOfPageSlot.__shuttleRewardedPatch = true;',
+    '    }',
+    '    if (typeof gt.defineSlot === "function" && !gt.defineSlot.__shuttleRewardedPatch){',
+    '      var originalDefineSlot = gt.defineSlot;',
+    '      gt.defineSlot = function(adUnitPath, size, div){',
+    '        if (isRewardedUnit(adUnitPath)) {',
+    '          console.log("[ShuttleAds] Replacing rewarded GPT defineSlot unit", adUnitPath, "→", TARGET_UNIT);',
+    '          adUnitPath = TARGET_UNIT;',
+    '        }',
+    '        return originalDefineSlot.call(this, adUnitPath, size, div);',
+    '      };',
+    '      gt.defineSlot.__shuttleRewardedPatch = true;',
     '    }',
     '  }',
     '  window.googletag = window.googletag || { cmd: [] };',
@@ -199,12 +227,13 @@ function stripSidebarAdsFromDoc(targetDoc) {
 }
 
 function sanitizeGameHtml(html) {
+  const patchedHtml = replaceRewardedUnitStrings(html);
   const parser = new DOMParser();
-  const parsed = parser.parseFromString(html, 'text/html');
+  const parsed = parser.parseFromString(patchedHtml, 'text/html');
 
   try {
     if (YOUR_H5_ADS.enabled) {
-      const overrideFragment = parser
+      const overrideFragment = document
         .createRange()
         .createContextualFragment(buildRewardedUnitOverrideScript());
 
