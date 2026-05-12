@@ -16,58 +16,69 @@ function gameDebug(event, details = {}) {
   return entry;
 }
 
-// ─── H5 Ad Configuration ───────────────────────────────────────────
+// ─── H5 Rewarded Unit Replacement ─────────────────────────────────
+// Goal: keep the existing gn-math H5 rewarded logic, but replace the
+// rewarded GPT unit path with yours.
 const YOUR_H5_ADS = {
-  gptNetworkId: '22921845643',
-  gptRewardedUnit: 'H5_Game_Rewarded',
-  adDeliveryDomain: 'shuttlemath.com',
-  adDeliveryPath: '/ad-delivery.html',
+  rewardedUnitPath: '/22921845643/H5_Game_Rewarded',
   enabled: true,
 };
 
 /**
- * Builds a minimal script that replaces gn-math's rewarded ad handler.
- * Creates a single hidden iframe to the approved domain's ad-delivery.html,
- * exposes window.ShuttleAds.showRewarded() → Promise<boolean>.
+ * Injected before the game/gn-math scripts run.
+ * It monkey-patches GPT's rewarded slot creation only:
+ *   googletag.defineOutOfPageSlot(oldPath, REWARDED)
+ * becomes:
+ *   googletag.defineOutOfPageSlot('/22921845643/H5_Game_Rewarded', REWARDED)
+ *
+ * It does NOT create banners, iframes, or its own ad UI.
  */
-function buildYourAdBridgeScript() {
+function buildRewardedUnitOverrideScript() {
   return [
     '<script>',
-    '(function() {',
+    '(function(){',
     "  'use strict';",
-    "  var AD = 'https://" + YOUR_H5_ADS.adDeliveryDomain + YOUR_H5_ADS.adDeliveryPath + "';",
-    "  var UNIT = '/" + YOUR_H5_ADS.gptNetworkId + "/" + YOUR_H5_ADS.gptRewardedUnit + "';",
-    '',
-    '  var f = document.createElement("iframe");',
-    '  f.src = AD;',
-    '  f.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;border:none;opacity:0;pointer-events:none;";',
-    '  f.setAttribute("scrolling", "no");',
-    '  document.body.appendChild(f);',
-    '',
-    '  window.ShuttleAds = {',
-    '    showRewarded: function() {',
-    '      return new Promise(function(resolve) {',
-    '        var done = false;',
-    '        function onMsg(e) {',
-    '          if (e.data && e.data.type === "reward-granted") {',
-    '            done = true;',
-    '            window.removeEventListener("message", onMsg);',
-    '            resolve(true);',
-    '          } else if (e.data && e.data.type === "reward-skipped") {',
-    '            done = true;',
-    '            window.removeEventListener("message", onMsg);',
-    '            resolve(false);',
-    '          }',
+    "  var TARGET_UNIT = '" + YOUR_H5_ADS.rewardedUnitPath + "';",
+    '  function isRewardedFormat(format, gt){',
+    '    try {',
+    '      return !!format && (',
+    '        (gt && gt.enums && gt.enums.OutOfPageFormat && format === gt.enums.OutOfPageFormat.REWARDED) ||',
+    '        String(format).toUpperCase().indexOf("REWARDED") !== -1',
+    '      );',
+    '    } catch(e) { return false; }',
+    '  }',
+    '  function patchGPT(){',
+    '    var gt = window.googletag;',
+    '    if (!gt) return;',
+    '    if (gt.cmd && typeof gt.cmd.push === "function" && !gt.cmd.__shuttleRewardedPatch){',
+    '      var originalPush = gt.cmd.push.bind(gt.cmd);',
+    '      gt.cmd.push = function(fn){',
+    '        if (typeof fn === "function") {',
+    '          return originalPush(function(){ patchGPT(); return fn.apply(this, arguments); });',
     '        }',
-    '        window.addEventListener("message", onMsg);',
-    '        f.contentWindow.postMessage({ type: "show-rewarded", unit: UNIT, networkId: "' + YOUR_H5_ADS.gptNetworkId + '" }, "*");',
-    '        setTimeout(function() { if (!done) { window.removeEventListener("message",onMsg); resolve(false); } }, 30000);',
-    '      });',
-    '    },',
-    '    unit: UNIT,',
-    '  };',
-    '',
-    '  console.log("[ShuttleAds] Ready. Rewarded unit:", UNIT);',
+    '        return originalPush(fn);',
+    '      };',
+    '      gt.cmd.__shuttleRewardedPatch = true;',
+    '    }',
+    '    if (typeof gt.defineOutOfPageSlot === "function" && !gt.defineOutOfPageSlot.__shuttleRewardedPatch){',
+    '      var originalDefineOOP = gt.defineOutOfPageSlot;',
+    '      gt.defineOutOfPageSlot = function(adUnitPath, format){',
+    '        if (isRewardedFormat(format, gt)) {',
+    '          console.log("[ShuttleAds] Replacing rewarded GPT unit", adUnitPath, "→", TARGET_UNIT);',
+    '          adUnitPath = TARGET_UNIT;',
+    '        }',
+    '        return originalDefineOOP.call(this, adUnitPath, format);',
+    '      };',
+    '      gt.defineOutOfPageSlot.__shuttleRewardedPatch = true;',
+    '    }',
+    '  }',
+    '  window.googletag = window.googletag || { cmd: [] };',
+    '  patchGPT();',
+    '  var tries = 0;',
+    '  var timer = setInterval(function(){',
+    '    patchGPT();',
+    '    if (++tries > 400) clearInterval(timer);',
+    '  }, 25);',
     '})();',
     '</script>',
   ].join('\n');
@@ -192,44 +203,30 @@ function sanitizeGameHtml(html) {
   const parsed = parser.parseFromString(html, 'text/html');
 
   try {
-    // Step 1: Strip the CDN owner's ad scripts and trackers
-    const sanitizeStats = stripSidebarAdsFromDoc(parsed);
-
-    // Step 2: Inject our rewarded ad bridge (replaces gn-math)
     if (YOUR_H5_ADS.enabled) {
-      try {
-        const bridgeHtml = buildYourAdBridgeScript();
-        const bridgeFragment = parser
-          .createRange()
-          .createContextualFragment(bridgeHtml);
-        const target = parsed.body || parsed.documentElement;
-        if (target) target.appendChild(bridgeFragment);
-      } catch (bridgeErr) {
-        gameDebug('bridge injection failed (game still loads)', { error: bridgeErr.message });
+      const overrideFragment = parser
+        .createRange()
+        .createContextualFragment(buildRewardedUnitOverrideScript());
+
+      // Must run before gn-math/game scripts, so inject as early as possible.
+      if (parsed.head) {
+        parsed.head.insertBefore(overrideFragment, parsed.head.firstChild);
+      } else if (parsed.documentElement) {
+        parsed.documentElement.insertBefore(overrideFragment, parsed.documentElement.firstChild);
       }
     }
 
-    // Step 3: Hide gn-math sidebar containers
-    try {
-      const blockStyle = parsed.createElement('style');
-      blockStyle.textContent = '#sidebarad1,#sidebarad2{display:none!important}';
-      if (parsed.head) parsed.head.appendChild(blockStyle);
-    } catch (cssErr) {
-      // non-critical
-    }
-
-    gameDebug('game html sanitized', {
+    gameDebug('game html patched', {
       title: parsed.title,
       htmlLengthBefore: html.length,
       htmlLengthAfter: parsed.documentElement.outerHTML.length,
-      sanitizeStats,
-      adsInjected: YOUR_H5_ADS.enabled,
+      rewardedUnitPath: YOUR_H5_ADS.rewardedUnitPath,
     });
 
     return '<!doctype html>\n' + parsed.documentElement.outerHTML;
   } catch (err) {
-    // If anything fails, return the raw HTML so the game still loads
-    gameDebug('sanitization error, serving raw html', { error: err.message, stack: err.stack });
+    // Fail open: never block the game because ad patching failed.
+    gameDebug('rewarded unit patch failed, serving raw html', { error: err.message, stack: err.stack });
     return html;
   }
 }
@@ -432,7 +429,7 @@ class ShaderCanvas {
         status: response.status,
         htmlLength: html.length,
       });
-      // Run sanitization: strip owner ads, inject your own H5 ad code
+      // Patch the game HTML: keep gn-math's H5 rewarded logic, but swap its GPT rewarded unit to ours.
       const sanitizedHtml = sanitizeGameHtml(html);
       if (!sanitizedHtml) {
         throw new Error('Sanitization blocked unsafe game payload');
