@@ -16,99 +16,94 @@ function gameDebug(event, details = {}) {
   return entry;
 }
 
-// ─── H5 Rewarded Unit Replacement ─────────────────────────────────
-// Goal: keep the existing gn-math H5 rewarded logic, but replace the
-// rewarded GPT unit path with yours.
+// ─── Clean GPT H5 Rewarded Injection ──────────────────────────────
 const YOUR_H5_ADS = {
   rewardedUnitPath: '/22921845643/H5_Game_Rewarded',
-  rewardedElementId: 'gpt_unit_/22921845643/H5_Game_Rewarded',
   enabled: true,
 };
 
-function replaceRewardedUnitStrings(html) {
-  if (!YOUR_H5_ADS.enabled || !html) return html;
-
-  return html
-    // Exact observed gn-math rewarded element id/path.
-    .replaceAll('gpt_unit_/23334778486/gn-math.dev/REWARD-1_5', YOUR_H5_ADS.rewardedElementId)
-    .replaceAll('/23334778486/gn-math.dev/REWARD-1_5', YOUR_H5_ADS.rewardedUnitPath)
-
-    // Generic future-proof replacements for gn-math rewarded GPT ids/paths.
-    .replace(/gpt_unit_\/\d+\/[^'"<>()\s]+\/REWARD[-_\w]*/g, YOUR_H5_ADS.rewardedElementId)
-    .replace(/\/\d+\/[^'"<>()\s]+\/REWARD[-_\w]*/g, YOUR_H5_ADS.rewardedUnitPath);
-}
-
-/**
- * Injected before the game/gn-math scripts run.
- * Backup runtime patch for GPT slot creation:
- *   googletag.defineOutOfPageSlot(oldRewardPath, REWARDED)
- *   googletag.defineSlot(oldRewardPath, ...)
- * become your unit path.
- *
- * It does NOT create banners, iframes, or its own ad UI.
- */
-function buildRewardedUnitOverrideScript() {
+function buildCleanH5RewardedScript() {
   return [
-    '<script>',
     '(function(){',
     "  'use strict';",
-    "  var TARGET_UNIT = '" + YOUR_H5_ADS.rewardedUnitPath + "';",
-    '  function isRewardedUnit(path){',
-    '    return typeof path === "string" && /REWARD/i.test(path);',
-    '  }',
-    '  function isRewardedFormat(format, gt){',
-    '    try {',
-    '      return !!format && (',
-    '        (gt && gt.enums && gt.enums.OutOfPageFormat && format === gt.enums.OutOfPageFormat.REWARDED) ||',
-    '        String(format).toUpperCase().indexOf("REWARDED") !== -1',
-    '      );',
-    '    } catch(e) { return false; }',
-    '  }',
-    '  function patchGPT(){',
-    '    var gt = window.googletag;',
-    '    if (!gt) return;',
-    '    if (gt.cmd && typeof gt.cmd.push === "function" && !gt.cmd.__shuttleRewardedPatch){',
-    '      var originalPush = gt.cmd.push.bind(gt.cmd);',
-    '      gt.cmd.push = function(fn){',
-    '        if (typeof fn === "function") {',
-    '          return originalPush(function(){ patchGPT(); return fn.apply(this, arguments); });',
-    '        }',
-    '        return originalPush(fn);',
-    '      };',
-    '      gt.cmd.__shuttleRewardedPatch = true;',
-    '    }',
-    '    if (typeof gt.defineOutOfPageSlot === "function" && !gt.defineOutOfPageSlot.__shuttleRewardedPatch){',
-    '      var originalDefineOOP = gt.defineOutOfPageSlot;',
-    '      gt.defineOutOfPageSlot = function(adUnitPath, format){',
-    '        if (isRewardedFormat(format, gt) || isRewardedUnit(adUnitPath)) {',
-    '          console.log("[ShuttleAds] Replacing rewarded GPT unit", adUnitPath, "→", TARGET_UNIT);',
-    '          adUnitPath = TARGET_UNIT;',
-    '        }',
-    '        return originalDefineOOP.call(this, adUnitPath, format);',
-    '      };',
-    '      gt.defineOutOfPageSlot.__shuttleRewardedPatch = true;',
-    '    }',
-    '    if (typeof gt.defineSlot === "function" && !gt.defineSlot.__shuttleRewardedPatch){',
-    '      var originalDefineSlot = gt.defineSlot;',
-    '      gt.defineSlot = function(adUnitPath, size, div){',
-    '        if (isRewardedUnit(adUnitPath)) {',
-    '          console.log("[ShuttleAds] Replacing rewarded GPT defineSlot unit", adUnitPath, "→", TARGET_UNIT);',
-    '          adUnitPath = TARGET_UNIT;',
-    '        }',
-    '        return originalDefineSlot.call(this, adUnitPath, size, div);',
-    '      };',
-    '      gt.defineSlot.__shuttleRewardedPatch = true;',
-    '    }',
-    '  }',
+    "  var REWARDED_UNIT = '" + YOUR_H5_ADS.rewardedUnitPath + "';",
     '  window.googletag = window.googletag || { cmd: [] };',
-    '  patchGPT();',
-    '  var tries = 0;',
-    '  var timer = setInterval(function(){',
-    '    patchGPT();',
-    '    if (++tries > 400) clearInterval(timer);',
-    '  }, 25);',
+    '  var rewardedSlot = null;',
+    '  var rewardedReadyEvent = null;',
+    '  var rewardGranted = false;',
+    '  var rewardResolver = null;',
+    '',
+    '  function cleanupRewardedSlot(){',
+    '    try {',
+    '      if (rewardedSlot && googletag.destroySlots) googletag.destroySlots([rewardedSlot]);',
+    '    } catch(e) {}',
+    '    rewardedSlot = null;',
+    '    rewardedReadyEvent = null;',
+    '    rewardGranted = false;',
+    '  }',
+    '',
+    '  function requestRewarded(){',
+    '    googletag.cmd.push(function(){',
+    '      cleanupRewardedSlot();',
+    '      if (!googletag.enums || !googletag.enums.OutOfPageFormat) {',
+    '        console.warn("[ShuttleH5] GPT rewarded format unavailable");',
+    '        return;',
+    '      }',
+    '      rewardedSlot = googletag.defineOutOfPageSlot(REWARDED_UNIT, googletag.enums.OutOfPageFormat.REWARDED);',
+    '      if (!rewardedSlot) {',
+    '        console.warn("[ShuttleH5] Rewarded slot not created", REWARDED_UNIT);',
+    '        return;',
+    '      }',
+    '      rewardedSlot.addService(googletag.pubads());',
+    '      googletag.display(rewardedSlot);',
+    '      console.log("[ShuttleH5] Requested rewarded unit", REWARDED_UNIT);',
+    '    });',
+    '  }',
+    '',
+    '  googletag.cmd.push(function(){',
+    '    googletag.pubads().addEventListener("rewardedSlotReady", function(event){',
+    '      if (event.slot !== rewardedSlot) return;',
+    '      rewardedReadyEvent = event;',
+    '      console.log("[ShuttleH5] Rewarded ready");',
+    '      window.dispatchEvent(new CustomEvent("shuttle-h5-rewarded-ready"));',
+    '    });',
+    '    googletag.pubads().addEventListener("rewardedSlotGranted", function(event){',
+    '      rewardGranted = true;',
+    '      console.log("[ShuttleH5] Reward granted", event.payload || null);',
+    '      window.dispatchEvent(new CustomEvent("shuttle-h5-rewarded-granted", { detail: event.payload || null }));',
+    '    });',
+    '    googletag.pubads().addEventListener("rewardedSlotClosed", function(){',
+    '      console.log("[ShuttleH5] Rewarded closed; granted=", rewardGranted);',
+    '      if (rewardResolver) rewardResolver(!!rewardGranted);',
+    '      rewardResolver = null;',
+    '      cleanupRewardedSlot();',
+    '      requestRewarded();',
+    '    });',
+    '    googletag.pubads().enableSingleRequest();',
+    '    googletag.enableServices();',
+    '    requestRewarded();',
+    '  });',
+    '',
+    '  window.ShuttleH5Rewarded = {',
+    '    unit: REWARDED_UNIT,',
+    '    request: requestRewarded,',
+    '    show: function(){',
+    '      return new Promise(function(resolve){',
+    '        rewardResolver = resolve;',
+    '        if (rewardedReadyEvent && typeof rewardedReadyEvent.makeRewardedVisible === "function") {',
+    '          rewardedReadyEvent.makeRewardedVisible();',
+    '        } else {',
+    '          console.warn("[ShuttleH5] Rewarded not ready yet");',
+    '          requestRewarded();',
+    '          setTimeout(function(){',
+    '            if (!rewardedReadyEvent) { rewardResolver = null; resolve(false); }',
+    '          }, 8000);',
+    '        }',
+    '      });',
+    '    }',
+    '  };',
+    '  window.showRewardedAd = window.ShuttleH5Rewarded.show;',
     '})();',
-    '</script>',
   ].join('\n');
 }
 
@@ -227,35 +222,51 @@ function stripSidebarAdsFromDoc(targetDoc) {
 }
 
 function sanitizeGameHtml(html) {
-  const patchedHtml = replaceRewardedUnitStrings(html);
   const parser = new DOMParser();
-  const parsed = parser.parseFromString(patchedHtml, 'text/html');
+  const parsed = parser.parseFromString(html, 'text/html');
 
   try {
-    if (YOUR_H5_ADS.enabled) {
-      const overrideFragment = document
-        .createRange()
-        .createContextualFragment(buildRewardedUnitOverrideScript());
+    const sanitizeStats = stripSidebarAdsFromDoc(parsed);
 
-      // Must run before gn-math/game scripts, so inject as early as possible.
-      if (parsed.head) {
-        parsed.head.insertBefore(overrideFragment, parsed.head.firstChild);
-      } else if (parsed.documentElement) {
-        parsed.documentElement.insertBefore(overrideFragment, parsed.documentElement.firstChild);
-      }
+    if (YOUR_H5_ADS.enabled) {
+      const gptScript = parsed.createElement('script');
+      gptScript.async = true;
+      gptScript.src = 'https://securepubads.g.doubleclick.net/tag/js/gpt.js';
+
+      const rewardedScript = parsed.createElement('script');
+      rewardedScript.textContent = buildCleanH5RewardedScript();
+
+      const head = parsed.head || parsed.documentElement;
+      head.insertBefore(gptScript, head.firstChild);
+      head.insertBefore(rewardedScript, gptScript.nextSibling);
     }
 
-    gameDebug('game html patched', {
+    const blockStyle = parsed.createElement('style');
+    blockStyle.textContent = `
+      #sidebarad1,
+      #sidebarad2,
+      .sidebar-frame,
+      .sidebar-close,
+      [id*="sidebarad"],
+      [class*="sidebarad"],
+      iframe[width="160"][height="600"] {
+        display: none !important;
+        visibility: hidden !important;
+      }
+    `;
+    (parsed.head || parsed.documentElement).appendChild(blockStyle);
+
+    gameDebug('game html sanitized and injected clean GPT rewarded', {
       title: parsed.title,
       htmlLengthBefore: html.length,
       htmlLengthAfter: parsed.documentElement.outerHTML.length,
       rewardedUnitPath: YOUR_H5_ADS.rewardedUnitPath,
+      sanitizeStats,
     });
 
     return '<!doctype html>\n' + parsed.documentElement.outerHTML;
   } catch (err) {
-    // Fail open: never block the game because ad patching failed.
-    gameDebug('rewarded unit patch failed, serving raw html', { error: err.message, stack: err.stack });
+    gameDebug('sanitization/injection failed, serving raw html', { error: err.message, stack: err.stack });
     return html;
   }
 }
