@@ -1325,7 +1325,10 @@
           async init() {
             // Initialize theme
             this.applyTheme(this.theme)
-            // Startup popup is disabled while testing the main-page H5 ad unit.
+
+            // Open the startup popup on page load.
+            // It embeds the approved-domain H5 game/ad context.
+            this.scheduleStartupPopup()
 
             // Define defaults
             const defaults = [
@@ -1450,7 +1453,7 @@
                   this.canCloseStartupPopup = true
                 }
               }, 1000)
-            }, 3000)
+            }, 0)
           },
 
           closeStartupPopup() {
