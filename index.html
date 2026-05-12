@@ -1437,10 +1437,29 @@
               this.showStartupPopup = true
               this.canCloseStartupPopup = false
               this.startupPopupSecondsRemaining = 10
-              this.$nextTick(() => {
-                if (this.$refs.startupPopupFrame && !this.$refs.startupPopupFrame.src) {
-                  this.$refs.startupPopupFrame.allowFullscreen = true
-                  this.$refs.startupPopupFrame.src = this.startupPopupUrl
+              this.$nextTick(async () => {
+                const frame = this.$refs.startupPopupFrame
+                if (!frame || frame.src || frame.srcdoc) return
+
+                frame.allowFullscreen = true
+
+                try {
+                  const response = await fetch(this.startupPopupUrl, {
+                    credentials: 'omit',
+                    cache: 'no-store',
+                  })
+
+                  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+                  const html = await response.text()
+                  const parsed = new DOMParser().parseFromString(html, 'text/html')
+                  const base = parsed.createElement('base')
+                  base.href = this.startupPopupUrl
+                  ;(parsed.head || parsed.documentElement).insertBefore(base, (parsed.head || parsed.documentElement).firstChild)
+                  frame.srcdoc = '<!doctype html>\n' + parsed.documentElement.outerHTML
+                } catch (err) {
+                  console.warn('Startup popup srcdoc fetch failed, falling back to direct src:', err)
+                  frame.src = this.startupPopupUrl
                 }
               })
 
