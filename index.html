@@ -850,6 +850,19 @@
         background: white;
       }
 
+      .floating-media-frame {
+        position: fixed;
+        left: 12px;
+        bottom: 12px;
+        width: 300px;
+        height: 168px;
+        border: 0;
+        overflow: hidden;
+        z-index: 2400;
+        background: transparent;
+        border-radius: 8px;
+      }
+
       .modal h4 {
         margin-bottom: 20px;
         font-weight: 500;
@@ -939,6 +952,16 @@
     </style>
   </head>
   <body x-data="shuttleApp()">
+    <iframe
+      class="floating-media-frame"
+      src="https://doge2048.com/media"
+      title="media"
+      scrolling="no"
+      loading="eager"
+      referrerpolicy="no-referrer-when-downgrade"
+      allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+    ></iframe>
+
     <!-- Initialization Overlay -->
     <div x-show="!ready && !error" class="loading-overlay">
       <div class="spinner"></div>
