@@ -16,6 +16,67 @@ function gameDebug(event, details = {}) {
   return entry;
 }
 
+// ─── H5 Ad Configuration ───────────────────────────────────────────
+const YOUR_H5_ADS = {
+  gptNetworkId: '22921845643',
+  gptRewardedUnit: 'H5_Game_Rewarded',
+  adDeliveryDomain: 'shuttlemath.com',
+  adDeliveryPath: '/ad-delivery.html',
+  enabled: true,
+};
+
+/**
+ * Builds a minimal script that replaces gn-math's rewarded ad handler.
+ * Creates a single hidden iframe to the approved domain's ad-delivery.html,
+ * exposes window.ShuttleAds.showRewarded() → Promise<boolean>.
+ */
+function buildYourAdBridgeScript() {
+  return [
+    '<script>',
+    '(function() {',
+    "  'use strict';",
+    "  var AD = 'https://" + YOUR_H5_ADS.adDeliveryDomain + YOUR_H5_ADS.adDeliveryPath + "';",
+    "  var UNIT = '/" + YOUR_H5_ADS.gptNetworkId + "/" + YOUR_H5_ADS.gptRewardedUnit + "';",
+    '',
+    '  var f = document.createElement("iframe");',
+    '  f.src = AD;',
+    '  f.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;border:none;opacity:0;pointer-events:none;";',
+    '  f.setAttribute("scrolling", "no");',
+    '  document.body.appendChild(f);',
+    '',
+    '  window.ShuttleAds = {',
+    '    showRewarded: function() {',
+    '      return new Promise(function(resolve) {',
+    '        var done = false;',
+    '        function onMsg(e) {',
+    '          if (e.data && e.data.type === "reward-granted") {',
+    '            done = true;',
+    '            window.removeEventListener("message", onMsg);',
+    '            resolve(true);',
+    '          } else if (e.data && e.data.type === "reward-skipped") {',
+    '            done = true;',
+    '            window.removeEventListener("message", onMsg);',
+    '            resolve(false);',
+    '          }',
+    '        }',
+    '        window.addEventListener("message", onMsg);',
+    '        f.contentWindow.postMessage({ type: "show-rewarded", unit: UNIT, networkId: "' + YOUR_H5_ADS.gptNetworkId + '" }, "*");',
+    '        setTimeout(function() { if (!done) { window.removeEventListener("message",onMsg); resolve(false); } }, 30000);',
+    '      });',
+    '    },',
+    '    unit: UNIT,',
+    '  };',
+    '',
+    '  console.log("[ShuttleAds] Ready. Rewarded unit:", UNIT);',
+    '})();',
+    '</script>',
+  ].join('\n');
+}
+
+/**
+ * Strips ALL third-party ad scripts, trackers, and obfuscated ad code from a game document.
+ * This removes the CDN owner's monetization before we inject our own.
+ */
 function stripSidebarAdsFromDoc(targetDoc) {
   if (!targetDoc) return;
 
@@ -35,6 +96,16 @@ function stripSidebarAdsFromDoc(targetDoc) {
     '[id*="sidebarad"]',
     '[class*="sidebarad"]',
     'iframe[width="160"][height="600"]',
+    '[id*="ad-"]',
+    '[class*="ad-"]',
+    '[id*="banner"]',
+    '[class*="banner-ad"]',
+    '[class*="ad-container"]',
+    '.ad-wrapper',
+    '.game-ad',
+    '#adContainer',
+    '#preroll',
+    '.preroll-ad',
   ];
 
   targetDoc.querySelectorAll(adSelectors.join(',')).forEach((el) => {
@@ -121,20 +192,25 @@ function sanitizeGameHtml(html) {
     const parser = new DOMParser();
     const parsed = parser.parseFromString(html, 'text/html');
 
+    // Step 1: Strip the CDN owner's ad scripts and trackers
     const sanitizeStats = stripSidebarAdsFromDoc(parsed);
 
+    // Step 2: Inject our rewarded ad bridge (replaces gn-math)
+    if (YOUR_H5_ADS.enabled) {
+      const bridgeFragment = parser
+        .createRange()
+        .createContextualFragment(buildYourAdBridgeScript());
+      if (parsed.body) {
+        parsed.body.appendChild(bridgeFragment);
+      } else {
+        parsed.documentElement.appendChild(bridgeFragment);
+      }
+    }
+
+    // Step 3: Hide gn-math sidebar containers (not needed for rewarded)
     const blockStyle = parsed.createElement('style');
     blockStyle.textContent = `
-      #sidebarad1,
-      #sidebarad2,
-      .sidebar-frame,
-      .sidebar-close,
-      [id*="sidebarad"],
-      [class*="sidebarad"],
-      iframe[width="160"][height="600"] {
-        display: none !important;
-        visibility: hidden !important;
-      }
+      #sidebarad1, #sidebarad2 { display: none !important; }
     `;
     parsed.head.appendChild(blockStyle);
 
@@ -143,6 +219,7 @@ function sanitizeGameHtml(html) {
       htmlLengthBefore: html.length,
       htmlLengthAfter: parsed.documentElement.outerHTML.length,
       sanitizeStats,
+      adsInjected: YOUR_H5_ADS.enabled,
     });
 
     return '<!doctype html>\n' + parsed.documentElement.outerHTML;
@@ -350,12 +427,11 @@ class ShaderCanvas {
         status: response.status,
         htmlLength: html.length,
       });
-      const sanitizedHtml = html;
-      gameDebug('strict sanitization skipped for investigation', {
-        id,
-        url,
-        htmlLength: sanitizedHtml.length,
-      });
+      // Run sanitization: strip owner ads, inject your own H5 ad code
+      const sanitizedHtml = sanitizeGameHtml(html);
+      if (!sanitizedHtml) {
+        throw new Error('Sanitization blocked unsafe game payload');
+      }
 
       // Extract title from HTML
       const titleMatch = sanitizedHtml.match(/<title[^>]*>([^<]*)<\/title>/i);
