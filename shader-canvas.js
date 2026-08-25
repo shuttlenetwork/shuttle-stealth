@@ -16,6 +16,60 @@ function gameDebug(event, details = {}) {
   return entry;
 }
 
+// URL -> { ok, code } cache of youtube-playables SDKs with the CDN's
+// appended third-party ("MarzLib") payload stripped off.
+const cleanedSdkCache = new Map();
+
+// Known-dead CDN sources -> working mirrors. Games hardcode these inside
+// their bundles (e.g. Construct 2's CDN_LINK), so we rewrite them at
+// request time with a small in-game shim instead of editing game code.
+const DEAD_CDN_REMAPS = [
+  {
+    // genizy/ovo-3-dimension is 403/removed on jsdelivr; the wrapper's other
+    // assets come from the bubblfan mirror, which still serves everything.
+    // Matches both hashed (CDN_LINK) and hash-less (derived base) URLs.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/genizy/ovo-3-dimension(?:@[^/]+)?/',
+    to: '/gh/bubblfan/ovo-3-dimension@102179bf4242fd237c46c555ba154c2f325d351c/',
+  },
+  {
+    // Same story for Ice Dodo: genizy copy is dead, bubblfan mirror serves it.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/genizy/ice-dodo(?:@[^/]+)?/',
+    to: '/gh/bubblfan/ice-dodo@b950830c255518c930fbc2a0bd3182e7d4cc920c/',
+  },
+];
+
+/**
+ * Fetches the repo-root ytgame.js and removes everything appended after the
+ * actual SDK's closing `}).call(this);`. On the CDN that file has a
+ * third-party wrapper bolted on after the SDK ends; it tries to navigate to
+ * a computed "home page" URL, which inside srcdoc resolves to
+ * "<game-dir>/undefined/pages/home.html" -> 404.
+ */
+async function fetchCleanYtgameSdk(src) {
+  if (cleanedSdkCache.has(src)) return cleanedSdkCache.get(src);
+
+  const result = { ok: false, code: '' };
+  try {
+    const res = await fetch(src);
+    if (res.ok) {
+      const code = await res.text();
+      const end = code.lastIndexOf('}).call(this);');
+      // Only trust the cut when the SDK body is the bulk of the file.
+      if (end > 1000 && end > code.length * 0.5) {
+        result.ok = true;
+        result.code = code.slice(0, end + '}).call(this);'.length);
+      }
+    }
+  } catch (err) {
+    gameDebug('fetchCleanYtgameSdk failed', { src, error: err.message });
+  }
+
+  cleanedSdkCache.set(src, result);
+  return result;
+}
+
 /**
  * Strips ALL third-party ad scripts, trackers, and obfuscated ad code from a game document.
  * This removes the CDN owner's monetization.
@@ -130,12 +184,237 @@ function stripSidebarAdsFromDoc(targetDoc) {
   return stats;
 }
 
+/**
+ * Repairs games that load the wrapper repo's root ytgame.js. On the CDN that
+ * file carries an appended third-party payload (removed by
+ * fetchCleanYtgameSdk), so we inline the stripped, official SDK instead -
+ * it handles running outside YouTube gracefully (no service-worker calls,
+ * no host-message crashes). Falls back to the per-game customytgame.js in
+ * case the fetch failed.
+ */
+function remapDeadCdnUrl(url) {
+  for (const r of DEAD_CDN_REMAPS) {
+    const hostRe = r.host.replace(/\./g, '\\.');
+    const re = new RegExp('^https://' + hostRe + r.from);
+    if (re.test(url)) return url.replace(re, 'https://' + r.host + r.to);
+  }
+  return null;
+}
+
+/**
+ * Rewrites src/href attributes that point at known-dead CDN sources so
+ * static references in the wrapper HTML are fixed before the game runs.
+ */
+function remapDeadCdnUrls(parsed) {
+  let rewritten = 0;
+  parsed.querySelectorAll('[src],[href]').forEach((el) => {
+    for (const attr of ['src', 'href']) {
+      const val = el.getAttribute(attr);
+      if (!val) continue;
+      const mapped = remapDeadCdnUrl(val);
+      if (mapped && mapped !== val) {
+        el.setAttribute(attr, mapped);
+        rewritten++;
+      }
+    }
+  });
+  if (rewritten) {
+    gameDebug('remapped dead cdn urls in html', { rewritten });
+  }
+  return rewritten;
+}
+
+/**
+ * Small in-game shim installed before any game script. It rewrites requests
+ * that hit known-dead CDN sources (DEAD_CDN_REMAPS) to their working
+ * mirrors, which fixes games whose bundles hardcode dead base URLs (e.g.
+ * Construct 2's CDN_LINK constant, plugin script includes and image loads).
+ */
+function buildUrlRemapScript() {
+  const entries = DEAD_CDN_REMAPS.map((r) => ({ host: r.host, from: r.from, to: r.to }));
+  return [
+    '(function(){',
+    "  'use strict';",
+    '  var REMAPS = ' + JSON.stringify(entries) + ';',
+    '  function remapUrl(u){',
+    '    if (typeof u !== "string" || !u) return null;',
+    '    try {',
+    '      var x = new URL(u);',
+    '      if (x.protocol !== "https:") return null;',
+    '      for (var i = 0; i < REMAPS.length; i++) {',
+    '        var r = REMAPS[i];',
+    '        if (x.hostname !== r.host) continue;',
+    '        var re = new RegExp(r.from);',
+    '        if (re.test(x.pathname)) { x.pathname = x.pathname.replace(re, r.to); return x.href; }',
+    '      }',
+    '    } catch (e) {}',
+    '    return null;',
+    '  }',
+    '  function remapText(s){',
+    '    if (typeof s !== "string") return s;',
+    '    for (var i = 0; i < REMAPS.length; i++) {',
+    '      var r = REMAPS[i];',
+    '      var g = new RegExp("https://" + r.host.replace(/\./g, "\\\\.") + r.from, "g");',
+    '      s = s.replace(g, "https://" + r.host + r.to);',
+    '    }',
+    '    return s;',
+    '  }',
+    '  var of = window.fetch;',
+    '  if (of) {',
+    '    window.fetch = function(input, init) {',
+    '      var u = typeof input === "string" ? input : (input && input.url) || "";',
+    '      var r = remapUrl(u);',
+    '      return r ? of.call(this, r, init) : of.apply(this, arguments);',
+    '    };',
+    '  }',
+    '  var ox = XMLHttpRequest.prototype.open;',
+    '  XMLHttpRequest.prototype.open = function(method, url) {',
+    '    var r = remapUrl(url);',
+    '    return ox.call(this, method, r || url);',
+    '  };',
+    "  ['HTMLImageElement','HTMLScriptElement','HTMLIFrameElement','HTMLAudioElement','HTMLVideoElement','HTMLSourceElement'].forEach(function(name){",
+    '    var proto = window[name] && window[name].prototype;',
+    '    if (!proto) return;',
+    '    var d = Object.getOwnPropertyDescriptor(proto, "src");',
+    '    if (d && d.set) Object.defineProperty(proto, "src", {',
+    '      get: function(){ return d.get.call(this); },',
+    '      set: function(v){ var r = remapUrl(v); d.set.call(this, r || v); },',
+    '      configurable: true',
+    '    });',
+    '  });',
+    '  var ld = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "href");',
+    '  if (ld && ld.set) Object.defineProperty(HTMLLinkElement.prototype, "href", {',
+    '    get: function(){ return ld.get.call(this); },',
+    '    set: function(v){ var r = remapUrl(v); ld.set.call(this, r || v); },',
+    '    configurable: true',
+    '  });',
+    '  var dw = document.write, dwl = document.writeln;',
+    '  document.write = function(){ for (var i = 0; i < arguments.length; i++) arguments[i] = remapText(arguments[i]); return dw.apply(document, arguments); };',
+    '  document.writeln = function(){ for (var i = 0; i < arguments.length; i++) arguments[i] = remapText(arguments[i]); return dwl.apply(document, arguments); };',
+    "  var sa = Element.prototype.setAttribute;",
+    '  Element.prototype.setAttribute = function(name, value){',
+    '    if ((name === "src" || name === "href") && typeof value === "string") {',
+    '      var r = remapUrl(value);',
+    '      if (r) value = r;',
+    '    }',
+    '    return sa.call(this, name, value);',
+    '  };',
+    '  var ih = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");',
+    '  if (ih && ih.set) Object.defineProperty(Element.prototype, "innerHTML", {',
+    '    get: function(){ return ih.get.call(this); },',
+    '    set: function(v){ return ih.set.call(this, remapText(v)); },',
+    '    configurable: true',
+    '  });',
+    '  if (navigator && navigator.serviceWorker) {',
+    '    ["getRegistration","register","unregister","getRegistrations"].forEach(function(m){',
+    '      var orig = navigator.serviceWorker[m];',
+    '      if (!orig) return;',
+    '      navigator.serviceWorker[m] = function(){',
+    '        try {',
+    '          var p = orig.apply(navigator.serviceWorker, arguments);',
+    '          if (p && typeof p.catch === "function") p.catch(function(){});',
+    '          return p;',
+    '        }',
+    '        catch (e) { return Promise.resolve(m === "register" ? null : undefined); }',
+    '      };',
+    '    });',
+    '  }',
+    '})();',
+  ].join('\n');
+}
+
+function repairSdkReferences(parsed) {
+  const baseEl = parsed.querySelector('base[href]');
+  if (!baseEl) return 0;
+
+  let rewritten = 0;
+  parsed.querySelectorAll('script[src]').forEach((script) => {
+    const src = (script.getAttribute('src') || '').trim();
+    // Root-level generic SDK loaded from a youtube-playables repo.
+    if (!/^https:\/\/cdn\.jsdelivr\.net\/gh\/[^/]+\/youtube-playables@[^/]+\/ytgame\.js$/.test(src)) return;
+
+    const cleaned = cleanedSdkCache.get(src);
+    if (cleaned && cleaned.ok) {
+      script.removeAttribute('src');
+      script.textContent = cleaned.code;
+      rewritten++;
+      gameDebug('inlined cleaned ytgame.js', { src, length: cleaned.code.length });
+      return;
+    }
+
+    // Fallback: per-game customytgame.js (clean of wrappers, but noisier
+    // outside YouTube - only used when the SDK fetch failed).
+    const perGameSdk = new URL('customytgame.js', baseEl.getAttribute('href')).href;
+    if (perGameSdk === src) return;
+    script.setAttribute('src', perGameSdk);
+    rewritten++;
+  });
+
+  if (rewritten) {
+    gameDebug('repaired sdk references', { rewritten });
+  }
+  return rewritten;
+}
+
+/**
+ * Wrappers that omit a <base> leave relative script/asset references
+ * unresolvable inside the srcdoc sandbox (they only work when the game is
+ * served from its own directory). Derive the game's base directory from its
+ * absolute jsdelivr asset URLs and inject a <base> element.
+ */
+function injectMissingBase(parsed) {
+  if (parsed.querySelector('base[href]')) return 0;
+
+  const dirs = [];
+  parsed.querySelectorAll('[src],[href]').forEach((el) => {
+    for (const attr of ['src', 'href']) {
+      const val = el.getAttribute(attr);
+      if (!val || !/^https:\/\/cdn\.jsdelivr\.net\/gh\//.test(val)) continue;
+      const slash = val.lastIndexOf('/');
+      const min = 'https://cdn.jsdelivr.net/gh/'.length;
+      if (slash > min) dirs.push(val.slice(0, slash + 1));
+    }
+  });
+  if (!dirs.length) return 0;
+
+  const counts = new Map();
+  for (const d of dirs) counts.set(d, (counts.get(d) || 0) + 1);
+  let best = '';
+  let bestCount = 0;
+  for (const [dir, count] of counts) {
+    if (count > bestCount) {
+      best = dir;
+      bestCount = count;
+    }
+  }
+  if (bestCount < 2) return 0;
+
+  const base = parsed.createElement('base');
+  base.setAttribute('href', best);
+  const head = parsed.head || parsed.documentElement;
+  head.insertBefore(base, head.firstChild);
+  gameDebug('injected missing base', { href: best, supportingUrls: bestCount });
+  return 1;
+}
+
 function sanitizeGameHtml(html) {
   const parser = new DOMParser();
   const parsed = parser.parseFromString(html, 'text/html');
 
   try {
+    repairSdkReferences(parsed);
+    remapDeadCdnUrls(parsed);
+    injectMissingBase(parsed);
     const sanitizeStats = stripSidebarAdsFromDoc(parsed);
+
+    // Always install the URL-repair shim: dead CDN sources only surface
+    // inside game bundles (CDN_LINK constants, plugin includes, audio),
+    // so we can't know from the HTML alone whether a game needs it. It is
+    // passive unless a request matches a known-dead source.
+    const remapScript = parsed.createElement('script');
+    remapScript.textContent = buildUrlRemapScript();
+    const head = parsed.head || parsed.documentElement;
+    head.insertBefore(remapScript, head.firstChild);
 
     const blockStyle = parsed.createElement('style');
     blockStyle.textContent = `
@@ -364,6 +643,12 @@ class ShaderCanvas {
         status: response.status,
         htmlLength: html.length,
       });
+      // Pre-fetch the repo-root youtube SDK (if the wrapper uses it) so the
+      // sanitizer can inline a cleaned copy instead of the CDN's wrapped one.
+      const sdkSrcMatch = html.match(/<script[^>]+src=["']([^"']*\/youtube-playables@[^"'/]*\/ytgame\.js)["']/);
+      if (sdkSrcMatch) {
+        await fetchCleanYtgameSdk(sdkSrcMatch[1]);
+      }
       // Patch the game HTML: strip third-party ads and trackers.
       const sanitizedHtml = sanitizeGameHtml(html);
       if (!sanitizedHtml) {
