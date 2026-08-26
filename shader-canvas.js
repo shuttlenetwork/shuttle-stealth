@@ -115,6 +115,32 @@ const DEAD_CDN_REMAPS = [
     to: '/gh/bubbls/UGS-Assets@main/tag/',
   },
   {
+    // Gladihoppers (poki Unity): the wrapper's Toaster68/gh repo is deleted
+    // (jsdelivr only serves a stale cache) and its poki SDK copy referenced
+    // genizy/gh, also deleted -> poki-sdk.js comes back as an error page and
+    // the browser ORB-blocks it, so the master-loader never boots Unity.
+    // hhool8's mirror is complete (SDK v2.263.0, master-loader, unity.js,
+    // UnityLoader, Build files) but its parts exceed jsdelivr's 20MB cap, so
+    // the whole repo is served from githack (correct MIME + 100MB limit).
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/(?:Toaster68\\/gh|genizy\\/gh)/patch\\/js\\/poki-master-loader\\.js$',
+    toHost: 'rawcdn.githack.com',
+    to: '/hhool8/gladihoppers-unblocked-ug76/main/patch/sdkv3/master-loader.js',
+  },
+  {
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/(?:Toaster68\\/gh|genizy\\/gh)/',
+    toHost: 'rawcdn.githack.com',
+    to: '/hhool8/gladihoppers-unblocked-ug76/main/',
+  },
+  {
+    // Gladihoppers' master-loader wants patch/js/UnityLoader.2019.2.js;
+    // the hhool8 mirror keeps it at patch/sdkv3/UnityLoader.js.
+    host: 'rawcdn.githack.com',
+    from: '/hhool8\/gladihoppers-unblocked-ug76\/main\/patch\/js\/UnityLoader\\.(?:2019\\.2|2019\\.1)\\.js$',
+    to: '/hhool8/gladihoppers-unblocked-ug76/main/patch/sdkv3/UnityLoader.js',
+  },
+  {
     // Papery Planes: master-loader.js hardcodes UnityLoader.2019.2.js which
     // does not exist in genizy/assets; the 2019.1 loader is the right one.
     host: 'rawcdn.githack.com',
@@ -540,7 +566,9 @@ function injectMissingBase(parsed) {
   });
   parsed.querySelectorAll('script').forEach((script) => {
     const text = script.textContent || '';
-    const re = /https:\/\/cdn\.jsdelivr\.net\/gh\/[\w.-]+\/[\w.-]+@[\w.-]+\//g;
+    // Accept both pinned (/user/repo@ref/...) and unpinned (/user/repo/...)
+    // jsdelivr gh paths.
+    const re = /https:\/\/cdn\.jsdelivr\.net\/gh\/[\w.-]+\/[\w.-]+(@[\w.-]+)?\//g;
     let m;
     while ((m = re.exec(text)) && urls.length < 200) urls.push(m[0]);
   });
@@ -556,9 +584,9 @@ function injectMissingBase(parsed) {
     }
     prefix += first[i] + '/';
   }
-  // Must point into a pinned gh repo directory (e.g. .../repo@rev/), not a
-  // bare host prefix.
-  if (!/\/gh\/[^/]+\/[^/]+@[^/]+\/$/.test(prefix)) return 0;
+  // Must point into a gh repo directory (e.g. .../repo@rev/ or .../repo/),
+  // not a bare host prefix.
+  if (!/\/gh\/[^/]+\/[^/]+(@[^/]+)?\/$/.test(prefix)) return 0;
 
   const base = parsed.createElement('base');
   base.setAttribute('href', prefix);
@@ -591,6 +619,20 @@ const GAME_PAGE_OVERRIDES = [
  * catalog wrappers without touching the remote bundles.
  */
 function repairWrapperHtml(html, url) {
+  if (/\/4-pf\.html$/.test(url)) {
+    // Gladihoppers (poki unity): the wrapper's Toaster68/gh + genizy/gh
+    // repos are deleted, so all its assets are remapped to the complete
+    // hhool8 mirror served from githack. The poki master-loader uses
+    // RELATIVE paths (patch/sdkv3/poki-sdk.js, patch/js/UnityLoader...),
+    // which would otherwise resolve against the game-serve document URL;
+    // give the wrapper an explicit base on the mirror.
+    if (!/<base[\s>]/i.test(html)) {
+      html = html.replace(
+        /<head([^>]*)>/i,
+        '<head$1><base href="https://rawcdn.githack.com/hhool8/gladihoppers-unblocked-ug76/main/">'
+      );
+    }
+  }
   if (/\/806\.html$/.test(url)) {
     // Slendytubbies 2: the wrapper instantiates Unity BEFORE its loader
     // script has loaded (head/before-body: ``UnityLoader is not defined``),
