@@ -90,6 +90,13 @@ async function serveGameSnapshot(request) {
 
 // Make the already-open app page controlled by this SW (required for the
 // game-serve iframes to be intercepted on first load).
+self.addEventListener('install', (event) => {
+  // Replace any previously deployed SW right away. Old SWs (pre game-serve)
+  // keep controlling pages across redeploys, and they let game-serve/
+  // requests fall through to the static host -> 404 instead of the game.
+  event.waitUntil(self.skipWaiting())
+})
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim())
 })

@@ -998,6 +998,24 @@ class ShaderCanvas {
       }
 
       if (serveUrl) {
+        // The game-serve path only exists on the service worker. A stale SW
+        // from an older deployment still controls the page but does not
+        // handle the prefix: the iframe request would fall through to the
+        // static host and 404. Probe the URL first; anything other than the
+        // cached HTML means fall back to srcdoc.
+        try {
+          const probe = await fetch(serveUrl);
+          if (!probe.ok || !(probe.headers.get('content-type') || '').includes('text/html')) {
+            gameDebug('game-serve probe failed, falling back to srcdoc', { id, status: probe.status });
+            serveUrl = null;
+          }
+        } catch (err) {
+          gameDebug('game-serve probe threw, falling back to srcdoc', { id, error: err.message });
+          serveUrl = null;
+        }
+      }
+
+      if (serveUrl) {
         iframe.src = serveUrl;
         gameDebug('game served at real url', { id, serveUrl });
       } else {
