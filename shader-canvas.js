@@ -38,6 +38,25 @@ const DEAD_CDN_REMAPS = [
     from: '/gh/genizy/ice-dodo(?:@[^/]+)?/',
     to: '/gh/bubblfan/ice-dodo@b950830c255518c930fbc2a0bd3182e7d4cc920c/',
   },
+  {
+    // Monster Tracks (and friends) from the dead genizy/google-class repo;
+    // the catalog's other google-class games use the taskmaster773 mirror.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/genizy/google-class(?:@[^/]+)?/',
+    to: '/gh/taskmaster773/google-class@cd06df26d3c4d9f73c8151fc13f7b2dc27f3adda/',
+  },
+  {
+    // Jetpack Joyride's genizy/jride copy is dead; bubblfan/jride serves it.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/genizy/jride(?:@[^/]+)?/',
+    to: '/gh/bubblfan/jride/',
+  },
+  {
+    // Gobble pulls poki SDK from dead genizy/fancade; bubblfan/fancade works.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/genizy/fancade(?:@[^/]+)?/',
+    to: '/gh/bubblfan/fancade/',
+  },
 ];
 
 /**
@@ -204,14 +223,21 @@ function remapDeadCdnUrl(url) {
 /**
  * Rewrites src/href attributes that point at known-dead CDN sources so
  * static references in the wrapper HTML are fixed before the game runs.
+ * Also re-bases root-anchored paths ("/js/x.js"), which can never resolve
+ * inside the srcdoc sandbox, against the document's base when one exists.
  */
 function remapDeadCdnUrls(parsed) {
   let rewritten = 0;
+  const baseEl = parsed.querySelector('base[href]');
+  const baseHref = baseEl ? baseEl.getAttribute('href') : null;
   parsed.querySelectorAll('[src],[href]').forEach((el) => {
     for (const attr of ['src', 'href']) {
       const val = el.getAttribute(attr);
       if (!val) continue;
-      const mapped = remapDeadCdnUrl(val);
+      let mapped = remapDeadCdnUrl(val);
+      if (!mapped && baseHref && /^\/[^/]/.test(val)) {
+        mapped = new URL(val.slice(1), baseHref).href;
+      }
       if (mapped && mapped !== val) {
         el.setAttribute(attr, mapped);
         rewritten++;
@@ -236,10 +262,25 @@ function buildUrlRemapScript() {
     '(function(){',
     "  'use strict';",
     '  var REMAPS = ' + JSON.stringify(entries) + ';',
+    // Sinkhole URL patterns: the CDN's wrapper payloads probe a "home page"
+    // or a null asset that can never exist; answering them in-page removes
+    // the 404 noise and keeps games from waiting on the network.
+    '  var SINK = [/\\/undefined\\/pages\\/home\\.html$/i, /(^|\\/)null(\\.html)?(\\?.*)?$/i];',
+    '  function sinkhole(u){',
+    '    if (typeof u !== "string" || !u) return false;',
+    '    try {',
+    '      var x = new URL(u, document.baseURI);',
+    '      if (x.protocol !== "http:" && x.protocol !== "https:") return false;',
+    '      for (var i = 0; i < SINK.length; i++) if (SINK[i].test(x.pathname)) return true;',
+    '    } catch (e) {}',
+    '    return false;',
+    '  }',
+    "  var DUMMY_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';",
     '  function remapUrl(u){',
     '    if (typeof u !== "string" || !u) return null;',
+    '    if (sinkhole(u)) return DUMMY_IMG;',
     '    try {',
-    '      var x = new URL(u);',
+    '      var x = new URL(u, document.baseURI);',
     '      if (x.protocol !== "https:") return null;',
     '      for (var i = 0; i < REMAPS.length; i++) {',
     '        var r = REMAPS[i];',
@@ -263,13 +304,15 @@ function buildUrlRemapScript() {
     '  if (of) {',
     '    window.fetch = function(input, init) {',
     '      var u = typeof input === "string" ? input : (input && input.url) || "";',
+    '      if (sinkhole(u)) return Promise.resolve(new Response("", { status: 200, statusText: "OK" }));',
     '      var r = remapUrl(u);',
-    '      return r ? of.call(this, r, init) : of.apply(this, arguments);',
+    '      return r === DUMMY_IMG ? Promise.reject(new TypeError("Failed to fetch")) : (r ? of.call(this, r, init) : of.apply(this, arguments));',
     '    };',
     '  }',
     '  var ox = XMLHttpRequest.prototype.open;',
     '  XMLHttpRequest.prototype.open = function(method, url) {',
-    '    var r = remapUrl(url);',
+    '    var r = sinkhole(url) ? "data:text/plain," : remapUrl(url);',
+    '    if (r === DUMMY_IMG) r = "data:text/plain,";',
     '    return ox.call(this, method, r || url);',
     '  };',
     "  ['HTMLImageElement','HTMLScriptElement','HTMLIFrameElement','HTMLAudioElement','HTMLVideoElement','HTMLSourceElement'].forEach(function(name){",
@@ -360,41 +403,96 @@ function repairSdkReferences(parsed) {
  * Wrappers that omit a <base> leave relative script/asset references
  * unresolvable inside the srcdoc sandbox (they only work when the game is
  * served from its own directory). Derive the game's base directory from its
- * absolute jsdelivr asset URLs and inject a <base> element.
+ * jsdelivr asset URLs (in src/href attributes AND inline script text, since
+ * some wrappers only mention their repo there) and inject a <base> element.
  */
 function injectMissingBase(parsed) {
   if (parsed.querySelector('base[href]')) return 0;
 
-  const dirs = [];
+  const urls = [];
   parsed.querySelectorAll('[src],[href]').forEach((el) => {
     for (const attr of ['src', 'href']) {
       const val = el.getAttribute(attr);
-      if (!val || !/^https:\/\/cdn\.jsdelivr\.net\/gh\//.test(val)) continue;
-      const slash = val.lastIndexOf('/');
-      const min = 'https://cdn.jsdelivr.net/gh/'.length;
-      if (slash > min) dirs.push(val.slice(0, slash + 1));
+      if (val && /^https:\/\/cdn\.jsdelivr\.net\/gh\//.test(val)) urls.push(val);
     }
   });
-  if (!dirs.length) return 0;
+  parsed.querySelectorAll('script').forEach((script) => {
+    const text = script.textContent || '';
+    const re = /https:\/\/cdn\.jsdelivr\.net\/gh\/[\w.-]+\/[\w.-]+@[\w.-]+\//g;
+    let m;
+    while ((m = re.exec(text)) && urls.length < 200) urls.push(m[0]);
+  });
+  if (urls.length < 2) return 0;
 
-  const counts = new Map();
-  for (const d of dirs) counts.set(d, (counts.get(d) || 0) + 1);
-  let best = '';
-  let bestCount = 0;
-  for (const [dir, count] of counts) {
-    if (count > bestCount) {
-      best = dir;
-      bestCount = count;
+  // Longest common directory prefix shared by all asset URLs.
+  let prefix = '';
+  const parts = urls.map((u) => (u.indexOf('/') ? u.split('/') : []));
+  const first = parts[0];
+  outer: for (let i = 0; i < first.length - 1; i++) {
+    for (const p of parts) {
+      if (p[i] !== first[i]) break outer;
     }
+    prefix += first[i] + '/';
   }
-  if (bestCount < 2) return 0;
+  // Must point into a pinned gh repo directory (e.g. .../repo@rev/), not a
+  // bare host prefix.
+  if (!/\/gh\/[^/]+\/[^/]+@[^/]+\/$/.test(prefix)) return 0;
 
   const base = parsed.createElement('base');
-  base.setAttribute('href', best);
+  base.setAttribute('href', prefix);
   const head = parsed.head || parsed.documentElement;
   head.insertBefore(base, head.firstChild);
-  gameDebug('injected missing base', { href: best, supportingUrls: bestCount });
+  gameDebug('injected missing base', { href: prefix, supportingUrls: urls.length });
   return 1;
+}
+
+/**
+ * Fetches a game wrapper, with a fallback for stale catalog filenames:
+ * the wrappers are occasionally renamed (114-f.html -> 114.html), so when
+ * the exact URL misses we retry the plain {id}.html form.
+ */
+async function fetchGameWrapper(url) {
+  const attempt = async (u) => {
+    const res = await fetch(u + '?t=' + Date.now());
+    if (!res.ok) return { ok: false, status: res.status };
+    return { ok: true, text: await res.text(), status: res.status };
+  };
+
+  const r = await attempt(url);
+  if (r.ok) return r;
+
+  const slash = url.lastIndexOf('/');
+  const base = url.slice(0, slash + 1);
+  const file = url.slice(slash + 1);
+  // Stale catalog filenames: fall back to the plain {id}.html and {id}-f.html forms.
+  const candidates = [file.replace(/^(\d+).*$/, '$1.html'), file.replace(/^(\d+).*$/, '$1-f.html')];
+  for (const plain of candidates) {
+    if (plain === file) continue;
+    const alt = base + plain;
+    const a = await attempt(alt);
+    if (a.ok) {
+      gameDebug('wrapper fetch fallback', { from: url, to: alt, status: r.status });
+      return a;
+    }
+  }
+  throw new Error('HTTP ' + r.status);
+}
+
+function buildHostCompatScript() {
+  return [
+    '(function(){',
+    "  'use strict';",
+    // Many catalog games ping their original iframe host on boot
+    // (window.parent.maeExportApis_ ...) and abort when the call throws.
+    // Provide a no-op host API so they keep booting.
+    '  try {',
+    '    var p = window.parent;',
+    '    if (p && p !== window && typeof p.maeExportApis_ !== "function") {',
+    '      Object.defineProperty(p, "maeExportApis_", { value: function(){}, writable: true, configurable: true });',
+    '    }',
+    '  } catch (e) {}',
+    '})();',
+  ].join('\n');
 }
 
 function sanitizeGameHtml(html) {
@@ -415,6 +513,12 @@ function sanitizeGameHtml(html) {
     remapScript.textContent = buildUrlRemapScript();
     const head = parsed.head || parsed.documentElement;
     head.insertBefore(remapScript, head.firstChild);
+
+    // Host-API stub: some games notify their original parent host on boot
+    // and crash if the call throws.
+    const compatScript = parsed.createElement('script');
+    compatScript.textContent = buildHostCompatScript();
+    head.insertBefore(compatScript, head.firstChild);
 
     const blockStyle = parsed.createElement('style');
     blockStyle.textContent = `
@@ -633,14 +737,12 @@ class ShaderCanvas {
     // Fetch and load game content (strict sanitized mode)
     try {
       this.emit(ShaderCanvas.EVENTS.LOADING_START);
-      const response = await fetch(url + '?t=' + Date.now());
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const html = await response.text();
+      const fetched = await fetchGameWrapper(url);
+      const html = fetched.text;
       gameDebug('fetched game html', {
         id,
         url,
-        status: response.status,
+        status: fetched.status,
         htmlLength: html.length,
       });
       // Pre-fetch the repo-root youtube SDK (if the wrapper uses it) so the
