@@ -495,6 +495,25 @@ function buildHostCompatScript() {
   ].join('\n');
 }
 
+async function waitForSwController(timeoutMs = 4000) {
+  if (navigator.serviceWorker.controller) return true;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    await new Promise((r) => setTimeout(r, 150));
+    if (navigator.serviceWorker.controller) return true;
+  }
+  return false;
+}
+
+async function trimGameServeCache(cache, maxEntries) {
+  try {
+    const keys = await cache.keys();
+    if (keys.length > maxEntries) {
+      await Promise.all(keys.slice(0, keys.length - maxEntries).map((k) => cache.delete(k)));
+    }
+  } catch (e) {}
+}
+
 function sanitizeGameHtml(html) {
   const parser = new DOMParser();
   const parsed = parser.parseFromString(html, 'text/html');
@@ -777,13 +796,46 @@ class ShaderCanvas {
         { once: true }
       );
 
-      iframe.srcdoc = sanitizedHtml;
+      // Serve the game at a real same-origin URL when the service worker is
+      // available: many games parse location.* (host checks, query strings)
+      // and crash or misbehave under about:srcdoc. The sanitized snapshot is
+      // stored in CacheStorage and the SW serves it back for ./game-serve/...
+      let serveUrl = null;
+      try {
+        if ('caches' in window && 'serviceWorker' in navigator) {
+          await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((r) => setTimeout(() => r(undefined), 3000)),
+          ]);
+          if (await waitForSwController(3000)) {
+            serveUrl = new URL('game-serve/' + id + '.html', location.href).href;
+            const cache = await caches.open('shuttle-game-serve');
+            await cache.put(
+              serveUrl,
+              new Response(sanitizedHtml, {
+                headers: { 'Content-Type': 'text/html; charset=utf-8' },
+              })
+            );
+            trimGameServeCache(cache, 40);
+          }
+        }
+      } catch (err) {
+        gameDebug('game-serve cache failed, falling back to srcdoc', { id, error: err.message });
+        serveUrl = null;
+      }
+
+      if (serveUrl) {
+        iframe.src = serveUrl;
+        gameDebug('game served at real url', { id, serveUrl });
+      } else {
+        iframe.srcdoc = sanitizedHtml;
+        gameDebug('game iframe srcdoc assigned', {
+          id,
+          title: gameTitle,
+          sanitizedLength: sanitizedHtml.length,
+        });
+      }
       surface.title = gameTitle;
-      gameDebug('game iframe srcdoc assigned', {
-        id,
-        title: gameTitle,
-        sanitizedLength: sanitizedHtml.length,
-      });
 
       this.emit(ShaderCanvas.EVENTS.LOADING_STOP);
       this.emit(ShaderCanvas.EVENTS.TITLE_CHANGE, gameTitle);
