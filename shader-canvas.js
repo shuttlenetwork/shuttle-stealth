@@ -57,6 +57,70 @@ const DEAD_CDN_REMAPS = [
     from: '/gh/genizy/fancade(?:@[^/]+)?/',
     to: '/gh/bubblfan/fancade/',
   },
+  {
+    // cg-rip Unity parts (and everything else in this repo) are 20MB+ per
+    // file, which jsdelivr refuses to serve. raw.githubusercontent.com has a
+    // 100MB cap and sends CORS headers, so Unity's fetches still work.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/bubblfan/cg-rip@main/',
+    toHost: 'rawcdn.githack.com',
+    to: '/bubblfan/cg-rip/main/',
+  },
+  {
+    // Slendytubbies 1 & 2: all data/wasm parts are 20MB+; served from raw.
+    // Note wrapper's base has no ref for SLENDYTUBBIES (default branch).
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/web-ports/SLENDYTUBBIES/',
+    toHost: 'rawcdn.githack.com',
+    to: '/web-ports/SLENDYTUBBIES/main/',
+  },
+  {
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/web-ports/slendytubbies@latest/',
+    toHost: 'rawcdn.githack.com',
+    to: '/web-ports/slendytubbies/main/',
+  },
+  {
+    // That's Not My Neighbor: wrapper pins an old commit whose main.js and
+    // pck parts don't exist; current main has everything (parts ~19.6MB).
+    host: 'cdn.jsdelivr.net',
+    from:
+      '/gh/giorgirick2-gif/game-webports-onawebsite@de75523557e46f375fc9173a9a0c0d34d8ed34f9/thats-not-my-neighbor/',
+    toHost: 'rawcdn.githack.com',
+    to: '/giorgirick2-gif/game-webports-onawebsite/main/thats-not-my-neighbor/',
+  },
+  {
+    // Minecraft 1.8.8 (Eaglercraft): wrapper base has a typo'd jsdelivr URL
+    // (missing /gh/) and classes.js is 22MB, over jsdelivr's cap. The
+    // Theprocat27 copy is also a broken build (its classes.js was stripped
+    // of the TeaVM `main` bootstrap), so we serve the complete client from
+    // the eaglercraftx1-8 site mirror (main = $rt_mainStarter present).
+    host: 'cdn.jsdelivr.net',
+    from: '/Theprocat27/Eaglercraft_1.8.8@main/',
+    toHost: 'rawcdn.githack.com',
+    to: '/eaglercraftx1-8/eaglercraftx1-8.github.io/main/eagler-files/1.8/Main/',
+  },
+  {
+    // Tall Man Run: wrapper pins an old youtube-playables commit whose
+    // tall-man-run/unarchiver2.min.js is missing; a later commit has it.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/bubbls/youtube-playables@8b29ce29cd86c8fb4f46fa5b63d3a0f4f32c5d4e/tall-man-run/',
+    to: '/gh/bubbls/youtube-playables@216925d0a4a27778c555e5b6ec010d9f809aa0d5/tall-man-run/',
+  },
+  {
+    // Tag: the wrapper points at bubblfan/UGS-Assets (an old fork without
+    // the tag/ game); the upstream bubbls/UGS-Assets has tag/scripts/*.
+    host: 'cdn.jsdelivr.net',
+    from: '/gh/bubblfan/UGS-Assets@main/tag/',
+    to: '/gh/bubbls/UGS-Assets@main/tag/',
+  },
+  {
+    // Papery Planes: master-loader.js hardcodes UnityLoader.2019.2.js which
+    // does not exist in genizy/assets; the 2019.1 loader is the right one.
+    host: 'rawcdn.githack.com',
+    from: '/genizy/assets/main/papery-planes/UnityLoader\\.2019\\.2\\.js$',
+    to: '/genizy/assets/main/papery-planes/UnityLoader.2019.1.js',
+  },
 ];
 
 /**
@@ -215,7 +279,7 @@ function remapDeadCdnUrl(url) {
   for (const r of DEAD_CDN_REMAPS) {
     const hostRe = r.host.replace(/\./g, '\\.');
     const re = new RegExp('^https://' + hostRe + r.from);
-    if (re.test(url)) return url.replace(re, 'https://' + r.host + r.to);
+    if (re.test(url)) return url.replace(re, 'https://' + (r.toHost || r.host) + r.to);
   }
   return null;
 }
@@ -257,11 +321,26 @@ function remapDeadCdnUrls(parsed) {
  * Construct 2's CDN_LINK constant, plugin script includes and image loads).
  */
 function buildUrlRemapScript() {
-  const entries = DEAD_CDN_REMAPS.map((r) => ({ host: r.host, from: r.from, to: r.to }));
+  const entries = DEAD_CDN_REMAPS.map((r) => ({ host: r.host, from: r.from, to: r.to, toHost: r.toHost }));
   return [
     '(function(){',
     "  'use strict';",
     '  var REMAPS = ' + JSON.stringify(entries) + ';',
+    // Same-origin proxy base (the app's game-serve/ directory root).
+    '  var appRoot = null;',
+    '  try {',
+    '    var _hi = location.href.split(/[?#]/)[0], _gi = _hi.indexOf("game-serve/");',
+    '    if (_gi >= 0) appRoot = _hi.slice(0, _gi);',
+    '  } catch (e) {}',
+    // Assets that must be served through the app's game-asset/ proxy with a
+    // literal marker segment in the path (UnityLoader's progress handler
+    // requires /Build/ inside the responseURL of its downloads).
+    '  var GUARDED = [{ host: "rawcdn.githack.com", from: "/genizy/assets/main/papery-planes/unity/" }];',
+    '  function segEncode(u){',
+    '    var seg = String(u).split("/");',
+    '    for (var i = 0; i < seg.length; i++) seg[i] = encodeURIComponent(seg[i]);',
+    '    return seg.join("/");',
+    '  }',
     // Sinkhole URL patterns: the CDN's wrapper payloads probe a "home page"
     // or a null asset that can never exist; answering them in-page removes
     // the 404 noise and keeps games from waiting on the network.
@@ -282,11 +361,21 @@ function buildUrlRemapScript() {
     '    try {',
     '      var x = new URL(u, document.baseURI);',
     '      if (x.protocol !== "https:") return null;',
+    '      if (appRoot) {',
+    '        for (var gi = 0; gi < GUARDED.length; gi++) {',
+    '          var g = GUARDED[gi];',
+    '          if (x.hostname === g.host && x.pathname.indexOf(g.from) === 0) return appRoot + "game-asset/Build/" + segEncode(x.href);',
+    '        }',
+    '      }',
     '      for (var i = 0; i < REMAPS.length; i++) {',
     '        var r = REMAPS[i];',
     '        if (x.hostname !== r.host) continue;',
     '        var re = new RegExp(r.from);',
-    '        if (re.test(x.pathname)) { x.pathname = x.pathname.replace(re, r.to); return x.href; }',
+    '        if (re.test(x.pathname)) {',
+    '          if (r.toHost) x.hostname = r.toHost;',
+    '          x.pathname = x.pathname.replace(re, r.to);',
+    '          return x.href;',
+    '        }',
     '      }',
     '    } catch (e) {}',
     '    return null;',
@@ -296,7 +385,7 @@ function buildUrlRemapScript() {
     '    for (var i = 0; i < REMAPS.length; i++) {',
     '      var r = REMAPS[i];',
     '      var g = new RegExp("https://" + r.host.replace(/\./g, "\\\\.") + r.from, "g");',
-    '      s = s.replace(g, "https://" + r.host + r.to);',
+    '      s = s.replace(g, "https://" + (r.toHost || r.host) + r.to);',
     '    }',
     '    return s;',
     '  }',
@@ -315,21 +404,29 @@ function buildUrlRemapScript() {
     '    if (r === DUMMY_IMG) r = "data:text/plain,";',
     '    return ox.call(this, method, r || url);',
     '  };',
+    '  var ld = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "href");',
+    '  if (ld && ld.set) Object.defineProperty(HTMLLinkElement.prototype, "href", {',
+    '    get: function(){ return ld.get.call(this); },',
+    '    set: function(v){ var r = remapUrl(v); ld.set.call(this, r || v); },',
+    '    configurable: true',
+    '  });',
+    // Sinkholed URLs feed bytes to whatever consumed them; script elements
+    // must get an empty script body instead of the 1px GIF or the browser
+    // tries to parse image bytes as JavaScript (SyntaxError, no URL).
+    '  function sinkForElement(el, v){',
+    '    var r = remapUrl(v);',
+    '    if (r === DUMMY_IMG && el && el.tagName === "SCRIPT") r = "data:text/javascript,";',
+    '    return r || v;',
+    '  }',
     "  ['HTMLImageElement','HTMLScriptElement','HTMLIFrameElement','HTMLAudioElement','HTMLVideoElement','HTMLSourceElement'].forEach(function(name){",
     '    var proto = window[name] && window[name].prototype;',
     '    if (!proto) return;',
     '    var d = Object.getOwnPropertyDescriptor(proto, "src");',
     '    if (d && d.set) Object.defineProperty(proto, "src", {',
     '      get: function(){ return d.get.call(this); },',
-    '      set: function(v){ var r = remapUrl(v); d.set.call(this, r || v); },',
+    '      set: function(v){ d.set.call(this, sinkForElement(this, v)); },',
     '      configurable: true',
     '    });',
-    '  });',
-    '  var ld = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "href");',
-    '  if (ld && ld.set) Object.defineProperty(HTMLLinkElement.prototype, "href", {',
-    '    get: function(){ return ld.get.call(this); },',
-    '    set: function(v){ var r = remapUrl(v); ld.set.call(this, r || v); },',
-    '    configurable: true',
     '  });',
     '  var dw = document.write, dwl = document.writeln;',
     '  document.write = function(){ for (var i = 0; i < arguments.length; i++) arguments[i] = remapText(arguments[i]); return dw.apply(document, arguments); };',
@@ -361,6 +458,31 @@ function buildUrlRemapScript() {
     '        catch (e) { return Promise.resolve(m === "register" ? null : undefined); }',
     '      };',
     '    });',
+    '  }',
+    // Cross-origin workers cannot be constructed from the game document;
+    // route them through the same-origin game-worker/ proxy (the service
+    // worker fetches the script and serves it with JS MIME). Each path
+    // segment of the remote URL is encoded individually so real slashes
+    // survive in the proxied path: worker code that derives its own
+    // directory (e.g. emscripten's scriptDirectory via lastIndexOf('/'))
+    // and then fetches same-dir assets keeps working through the SW.
+    '  var NW = window.Worker;',
+    '  if (NW && appRoot) {',
+    '    function proxyWorkerUrl(u){',
+    '      return appRoot + "game-worker/" + segEncode(u);',
+    '    }',
+    '    window.Worker = function(url, opts) {',
+    '      var u = String(url);',
+    '      try {',
+    '        var abs = new URL(u, document.baseURI).href;',
+    '        if (/^https?:/.test(abs)) {',
+    '          var au = new URL(abs);',
+    '          if (au.origin !== location.origin) return new NW(proxyWorkerUrl(abs), opts);',
+    '        }',
+    '      } catch (e) {}',
+    '      return new NW(url, opts);',
+    '    };',
+    '    try { window.Worker.prototype = NW.prototype; } catch (e) {}',
     '  }',
     '})();',
   ].join('\n');
@@ -451,11 +573,56 @@ function injectMissingBase(parsed) {
  * the wrappers are occasionally renamed (114-f.html -> 114.html), so when
  * the exact URL misses we retry the plain {id}.html form.
  */
+const GAME_PAGE_OVERRIDES = [
+  {
+    // Slendytubbies 1: the catalog wrapper boots via a dead 2018-era loader
+    // (Build/ST1.json, Build/UnityLoader.js, *.unityweb parts) that does not
+    // exist in web-ports/SLENDYTUBBIES. The repo's own index.html is the
+    // working boot (2019 loader + part merging) and even uses relative asset
+    // refs, which the runtime remap re-bases onto raw.githubusercontent.
+    match: /\/796\.html$/,
+    url: 'https://raw.githubusercontent.com/web-ports/SLENDYTUBBIES/main/1/index.html',
+  },
+];
+
+/**
+ * Per-game repairs applied to the raw wrapper HTML before sanitization.
+ * These fix broken boot sequences / missing config files in specific
+ * catalog wrappers without touching the remote bundles.
+ */
+function repairWrapperHtml(html, url) {
+  if (/\/806\.html$/.test(url)) {
+    // Slendytubbies 2: the wrapper instantiates Unity BEFORE its loader
+    // script has loaded (head/before-body: ``UnityLoader is not defined``),
+    // and passes a Build/Build.json that does not exist in the repo (the
+    // repo only ships the split .unityweb parts, which the wrapper merges
+    // into blob URLs via an XHR patch). Replace both "Build.json" args with
+    // an inline config whose codeUrl/dataUrl match the patch targets, and
+    // drop the premature head-block instantiate.
+    html = html.replace(/\s*<script>\s*var gameInstance = UnityLoader\.instantiate[^<]*<\/script>/, '');
+    html = html.replace(
+      /"Build\/Build\.json"/g,
+      '{ codeUrl:"Build/Build.asm.code.unityweb", dataUrl:"Build/Build.data.unityweb", frameworkUrl:"Build/Build.asm.framework.unityweb", memoryUrl:"Build/Build.asm.memory.unityweb" }'
+    );
+  }
+  return html;
+}
+
 async function fetchGameWrapper(url) {
+  const override = GAME_PAGE_OVERRIDES.find((o) => o.match.test(url));
+  if (override) {
+    const res = await fetch(override.url + '?t=' + Date.now());
+    if (res.ok) {
+      gameDebug('wrapper page override', { url, to: override.url });
+      return { ok: true, text: repairWrapperHtml(await res.text(), url), status: res.status };
+    }
+    gameDebug('wrapper page override failed, using catalog wrapper', { url });
+  }
+
   const attempt = async (u) => {
     const res = await fetch(u + '?t=' + Date.now());
     if (!res.ok) return { ok: false, status: res.status };
-    return { ok: true, text: await res.text(), status: res.status };
+    return { ok: true, text: repairWrapperHtml(await res.text(), url), status: res.status };
   };
 
   const r = await attempt(url);
@@ -491,6 +658,12 @@ function buildHostCompatScript() {
     '      Object.defineProperty(p, "maeExportApis_", { value: function(){}, writable: true, configurable: true });',
     '    }',
     '  } catch (e) {}',
+    // Modal dialogs block the whole renderer (the app shares one process
+    // with every game tab). Suppress them so a game's alert/confirm/prompt
+    // can never freeze the app; the message still lands in the console.
+    '  try { window.alert = function(m){ try{ console.warn("[shuttle] alert suppressed:", m); }catch(e){} }; } catch (e) {}',
+    '  try { window.confirm = function(){ return false; }; } catch (e) {}',
+    '  try { window.prompt = function(){ return null; }; } catch (e) {}',
     '})();',
   ].join('\n');
 }
