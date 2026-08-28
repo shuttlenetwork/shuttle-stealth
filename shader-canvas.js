@@ -691,6 +691,21 @@ function buildHostCompatScript() {
   return [
     '(function(){',
     "  'use strict';",
+    // The YouTube Playables SDK decides "am I hosted by youtube.com" with a
+    // single check (window !== window.parent). Any iframe looks embedded, so
+    // every host call (game.loadData, system.getLanguage, ...) posts a
+    // message to our page and waits for a YouTube-style reply that never
+    // comes -> Bowmasters-style games hang on a black loading screen.
+    // Reporting the game document as its own top makes the SDK take its
+    // standalone fast path: host calls resolve with empty defaults and
+    // localStorage/indexedDB stay available (they are otherwise nulled out
+    // for "embedded" games that are supposed to save via the host).
+    '  try {',
+    '    Object.defineProperty(window, "parent", {',
+    '      get: function(){ return window; },',
+    '      configurable: true',
+    '    });',
+    '  } catch (e) {}',
     // Many catalog games ping their original iframe host on boot
     // (window.parent.maeExportApis_ ...) and abort when the call throws.
     // Provide a no-op host API so they keep booting.
