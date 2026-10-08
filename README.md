@@ -78,7 +78,7 @@ Open `http://localhost:8080` in your browser. On first load the page registers t
 ## Deployment
 
 - This is a **static site**: deployable to any static host/CDN (Vercel, Netlify, Railway, Render, S3, etc.) by publishing the repository contents.
-- The repository contains **no platform configuration files** (no `vercel.json`, `netlify.toml`, `railway.json`, `render.yaml`, `Dockerfile`) — the previous README's "one-click deploy" buttons are **unverified** (`TODO`).
+- `vercel.json` sets up Vercel as a static deploy (no framework, no build, root as output). The repository has no other platform configuration files (no `netlify.toml`, `railway.json`, `render.yaml`, `Dockerfile`) — the previous README's "one-click deploy" buttons are **unverified** (`TODO`).
 - `project.json` references `shuttle-stealth.vercel.app` as the known domain.
 - The **Bare and Wisp backends** referenced by `shader.config.mjs` (`telemetry/`, `/ws/`) must be hosted and reachable from the deployed origin for proxying to work; they are not part of this repo (`TODO`).
 - Service Worker registration uses `scope: './'`, so the app also works when hosted in a subdirectory.
